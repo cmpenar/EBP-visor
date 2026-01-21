@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Visor EBP – Árbol interactivo (texto completo)</title>
+  <style>
+    :root{ --bg:#f6f8fb; --card:#fff; --ink:#0f172a; --muted:#64748b; --line:#cbd5e1; --accent:#1d4ed8;}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--ink);}
+    header{padding:14px 16px;background:linear-gradient(90deg,#0b2e4a,#0b3a68);color:#fff;}
+    header h1{margin:0;font-size:18px;font-weight:700}
+    header p{margin:6px 0 0;font-size:12px;opacity:.9}
+    .wrap{display:grid;grid-template-columns:320px 1fr;gap:12px;padding:12px;height:calc(100vh - 64px);box-sizing:border-box;}
+    .panel{background:var(--card);border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 1px 4px rgba(15,23,42,.06);overflow:auto}
+    .panel .inner{padding:12px;}
+    label{display:block;font-size:12px;color:var(--muted);margin:10px 0 6px}
+    select,button{width:100%;padding:10px 10px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;font-size:13px}
+    button{cursor:pointer;background:#0ea5e9;color:#fff;border:0;font-weight:700}
+    button:hover{filter:brightness(.95)}
+    .small{font-size:12px;color:var(--muted);line-height:1.35}
+    .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+    .chip{font-size:11px;padding:4px 8px;border-radius:999px;background:#eef2ff;border:1px solid #e0e7ff;color:#3730a3}
+    .hint{margin-top:10px;padding:10px;border-radius:12px;background:#f1f5f9;border:1px dashed #cbd5e1;font-size:12px;color:#334155}
+    #svgWrap{position:relative}
+    svg{width:100%;height:100%;display:block;background:var(--card);border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 1px 4px rgba(15,23,42,.06);}
+    .node rect{fill:#fff;stroke:#94a3b8;stroke-width:1.2;rx:10;ry:10}
+    .node .title{font-size:12px;fill:#0f172a;font-weight:650}
+    .node .meta{font-size:10px;fill:#64748b}
+    .link{fill:none;stroke:#94a3b8;stroke-width:1.2;opacity:.9}
+    .node:hover rect{stroke:var(--accent);stroke-width:2}
+    .toolbar{position:absolute;left:12px;top:12px;display:flex;gap:8px}
+    .toolbtn{padding:8px 10px;border-radius:10px;background:#0f172a;color:#fff;border:0;font-weight:700;font-size:12px;opacity:.92}
+    .toolbtn:hover{opacity:1}
+    @media(max-width:980px){ .wrap{grid-template-columns:1fr; height:auto} svg{height:75vh}}
+  </style>
+</head>
+<body>
+<header>
+  <h1>Visor EBP (tipo mapa mental/árbol) – texto completo + orden variable</h1>
+  <p>Carga el Excel ya incluido (data.json). No recorta con “…”: el texto se envuelve en varias líneas y el nodo crece.</p>
+</header>
+
+<div class="wrap">
+  <div class="panel">
+    <div class="inner">
+      <div class="small"><b>Niveles de lectura</b> (elige el orden de atributos)</div>
+
+      <label>Nivel 1</label>
+      <select id="lvl1"></select>
+
+      <label>Nivel 2</label>
+      <select id="lvl2"></select>
+
+      <label>Nivel 3</label>
+      <select id="lvl3"></select>
+
+      <label>Nivel 4</label>
+      <select id="lvl4"></select>
+
+      <label>Nivel 5</label>
+      <select id="lvl5"></select>
+
+      <div style="height:10px"></div>
+      <button id="renderBtn">Renderizar</button>
+
+      <div class="chips" id="orderChips"></div>
+
+      <div class="hint">
+        <b>Gestos:</b> arrastra para mover • rueda/trackpad para zoom • click en un nodo para ver detalle abajo.
+      </div>
+
+      <hr style="border:none;border-top:1px solid #e2e8f0;margin:12px 0">
+
+      <div class="small"><b>Detalle (click en nodo)</b></div>
+      <div id="detail" class="small" style="margin-top:8px;white-space:pre-wrap"></div>
+    </div>
+  </div>
+
+  <div id="svgWrap">
+    <div class="toolbar">
+      <button class="toolbtn" id="fitBtn">Ajustar</button>
+      <button class="toolbtn" id="resetBtn">Reset zoom</button>
+    </div>
+    <svg id="viz"></svg>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script>
+const DEFAULT_LEVELS = ["Área Prioritaria","Objetivo Estratégico","Impacto Esperado","Operaciones vinculadas","Indicador"];
+
+const LABELS = [
+  "Área Prioritaria","Objetivo Estratégico","Impacto Esperado","Operaciones vinculadas",
+  "Cooperaciones técnicas vinculadas","Indicador","Año","Fuente"
+];
+
+const lvlSelects = ["lvl1","lvl2","lvl3","lvl4","lvl5"].map(id=>document.getElementById(id));
+const orderChips = document.getElementById("orderChips");
+const detail = document.getElementById("detail");
+
+function fillSelect(select, options, selected){
+  select.innerHTML = "";
+  options.forEach(opt=>{
+    const o=document.createElement("option");
+    o.value=opt; o.textContent=opt;
+    if(opt===selected) o.selected=true;
+    select.appendChild(o);
+  });
+}
+
+function uniqueOrder(vals){
+  const used=new Set();
+  return vals.filter(v=>{ if(used.has(v)) return false; used.add(v); return true; });
+}
+
+function updateChips(levels){
+  orderChips.innerHTML="";
+  levels.forEach((l,i)=>{
+    const d=document.createElement("div");
+    d.className="chip";
+    d.textContent=`${i+1}. ${l}`;
+    orderChips.appendChild(d);
+  });
+}
+
+lvlSelects.forEach((sel,i)=>fillSelect(sel, LABELS, DEFAULT_LEVELS[i] || LABELS[i]));
+updateChips(DEFAULT_LEVELS);
+
+async function loadRows(){
+  const res = await fetch("./data.json");
+  const data = await res.json();
+  return data.rows;
+}
+
+function buildTree(rows, levels){
+  const root = {name:"EBP Costa Rica 2024-2027", children:[]};
+
+  function getChild(parent, name){
+    if(!parent.children) parent.children=[];
+    let c = parent.children.find(x=>x.name===name);
+    if(!c){ c={name, children:[], _count:0, _rows:[]}; parent.children.push(c); }
+    return c;
+  }
+
+  rows.forEach(r=>{
+    let p=root;
+    levels.forEach(lvl=>{
+      let v = (r[lvl] ?? "").toString().trim();
+      if(!v) v="(Sin dato)";
+      p=getChild(p, v);
+      p._count += 1;
+      p._rows.push(r);
+    });
+  });
+
+  return root;
+}
+
+// --- D3 tree with wrapped text and variable node height ---
+const svg = d3.select("#viz");
+let g = svg.append("g");
+let zoom = d3.zoom().scaleExtent([0.2, 2.8]).on("zoom", (event)=>g.attr("transform", event.transform));
+svg.call(zoom);
+
+function wrapText(selection, width){
+  selection.each(function(){
+    const text = d3.select(this);
+    const words = text.text().split(/\s+/).filter(Boolean);
+    text.text(null);
+
+    let line = [];
+    let lineNumber = 0;
+    const lineHeight = 1.25; // em
+    const x = text.attr("x");
+    const y = text.attr("y");
+    const dy = parseFloat(text.attr("dy") || 0);
+
+    let tspan = text.append("tspan").attr("x", x).attr("y", y).attr("dy", dy + "em");
+
+    for (let i=0; i<words.length; i++){
+      line.push(words[i]);
+      tspan.text(line.join(" "));
+      if (tspan.node().getComputedTextLength() > width){
+        line.pop();
+        tspan.text(line.join(" "));
+        line = [words[i]];
+        tspan = text.append("tspan")
+          .attr("x", x)
+          .attr("y", y)
+          .attr("dy", (++lineNumber * lineHeight + dy) + "em")
+          .text(words[i]);
+      }
+    }
+  });
+}
+
+function render(treeData){
+  svg.selectAll("*").remove();
+  g = svg.append("g");
+  svg.call(zoom);
+
+  const width = svg.node().clientWidth;
+  const height = svg.node().clientHeight;
+
+  const root = d3.hierarchy(treeData);
+
+  const nodeCardWidth = 260;  // fixed width card; height auto from wrapped lines
+  const textWrapWidth = nodeCardWidth - 22;
+
+  // spacing between nodes; vertical spacing will expand by node height later
+  const treeLayout = d3.tree().nodeSize([90, nodeCardWidth + 90]);
+  treeLayout(root);
+
+  // links
+  g.selectAll(".link")
+    .data(root.links())
+    .join("path")
+    .attr("class","link")
+    .attr("d", d3.linkHorizontal()
+      .x(d => d.y)
+      .y(d => d.x)
+    );
+
+  const nodes = g.selectAll(".node")
+    .data(root.descendants())
+    .join("g")
+    .attr("class","node")
+    .attr("transform", d => `translate(${d.y},${d.x})`)
+    .on("click", (event,d)=>{
+      const sample = (d.data._rows && d.data._rows[0]) ? d.data._rows[0] : null;
+      const lines = [];
+      lines.push(`Nodo: ${d.data.name}`);
+      lines.push(`Registros en este camino: ${d.data._count || 0}`);
+      if(sample){
+        lines.push("");
+        lines.push("Ejemplo de fila asociada:");
+        Object.keys(sample).forEach(k=>{
+          if(["ID","ID_Area"].includes(k)) return;
+          const v=(sample[k]??"").toString().trim();
+          if(v) lines.push(`- ${k}: ${v}`);
+        });
+      }
+      detail.textContent = lines.join("\n");
+    });
+
+  // provisional rect, adjust later after wrapping
+  nodes.append("rect")
+    .attr("x", 0)
+    .attr("y", -28)
+    .attr("width", nodeCardWidth)
+    .attr("height", 56);
+
+  const title = nodes.append("text")
+    .attr("class","title")
+    .attr("x", 12)
+    .attr("y", -14)
+    .attr("dy", 0)
+    .text(d=>d.data.name);
+
+  // Wrap titles
+  title.call(wrapText, textWrapWidth);
+
+  // meta line
+  nodes.append("text")
+    .attr("class","meta")
+    .attr("x", 12)
+    .attr("y", 18)
+    .text(d=>{
+      const c = d.data._count || (d.children ? d.children.length : 0);
+      return d.depth===0 ? "" : `Registros: ${c}`;
+    });
+
+  // Adjust rect height based on wrapped tspans
+  nodes.each(function(d){
+    const node = d3.select(this);
+    const tspans = node.selectAll("text.title tspan").nodes();
+    const lines = tspans.length || 1;
+    const titleHeight = Math.max(1, lines) * 15; // px approx
+    const h = 44 + titleHeight; // base + title
+    node.select("rect")
+      .attr("y", -(h/2))
+      .attr("height", h);
+    // Re-center title baseline
+    node.select("text.title")
+      .attr("y", -(h/2) + 14);
+    node.select("text.meta")
+      .attr("y", (h/2) - 12);
+  });
+
+  // Fit to view
+  fitToView();
+  function fitToView(){
+    const bounds = g.node().getBBox();
+    const fullWidth = width;
+    const fullHeight = height;
+    const midX = bounds.x + bounds.width / 2;
+    const midY = bounds.y + bounds.height / 2;
+    if (bounds.width === 0 || bounds.height === 0) return;
+
+    const scale = 0.95 / Math.max(bounds.width / fullWidth, bounds.height / fullHeight);
+    const translate = [fullWidth / 2 - scale * midX, fullHeight / 2 - scale * midY];
+    svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale));
+  }
+
+  document.getElementById("fitBtn").onclick = fitToView;
+  document.getElementById("resetBtn").onclick = ()=>svg.transition().duration(300).call(zoom.transform, d3.zoomIdentity);
+}
+
+function getLevelsFromUI(){
+  const levels = lvlSelects.map(s=>s.value);
+  // enforce uniqueness: if duplicates, auto-fix by keeping first and replacing others
+  const used=new Set();
+  for(let i=0;i<levels.length;i++){
+    if(used.has(levels[i])){
+      // pick first unused
+      const repl = LABELS.find(x=>!used.has(x));
+      levels[i]=repl;
+      lvlSelects[i].value=repl;
+    }
+    used.add(levels[i]);
+  }
+  updateChips(levels);
+  return levels;
+}
+
+let ROWS_CACHE=null;
+
+async function main(){
+  ROWS_CACHE = await loadRows();
+  const levels = getLevelsFromUI();
+  const tree = buildTree(ROWS_CACHE, levels);
+  render(tree);
+}
+main();
+
+document.getElementById("renderBtn").onclick = ()=>{
+  const levels = getLevelsFromUI();
+  const tree = buildTree(ROWS_CACHE, levels);
+  render(tree);
+};
+</script>
+</body>
+</html>
