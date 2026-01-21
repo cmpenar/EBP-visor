@@ -28,26 +28,51 @@
     .node .meta{font-size:10px;fill:#64748b}
     .link{fill:none;stroke:#94a3b8;stroke-width:1.2;opacity:.9}
     .node:hover rect{stroke:var(--accent);stroke-width:2}
-    .toolbar{position:absolute;left:12px;top:12px;display:flex;gap:8px}
-    .toolbtn{padding:8px 10px;border-radius:10px;background:#0f172a;color:#fff;border:0;font-weight:700;font-size:12px;opacity:.92}
-    .toolbtn:hover{opacity:1}
     @media(max-width:980px){ .wrap{grid-template-columns:1fr; height:auto} svg{height:75vh}}
 
-    /* ✅ Encabezados de niveles (nombre del campo por columna) */
-    .levelHeaders {
-      pointer-events: none;
+    /* ✅ Barra inferior fija (como botones, pero abajo) */
+    .levelbarBottom{
+      position:absolute;
+      left:12px;
+      right:12px;
+      bottom:12px;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+      z-index:10;
+      pointer-events:auto;
     }
-    .levelHeaders text{
-      font-size: 12px;
-      font-weight: 800;
-      fill: #0f172a;
+
+    .levelpill{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius:12px;
+      background:#0f172a;
+      color:#fff;
+      border:0;
+      font-weight:800;
+      font-size:12px;
+      opacity:.92;
+      box-shadow:0 6px 16px rgba(15,23,42,.18);
+      max-width:340px;
     }
-    .levelHeaders rect{
-      fill: #eef2ff;
-      stroke: #c7d2fe;
-      stroke-width: 1.2;
-      rx: 10;
-      ry: 10;
+    .levelpill b{
+      background:rgba(255,255,255,.18);
+      padding:2px 8px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    /* ✅ no cortamos texto: lo dejamos en varias líneas */
+    .levelpill span{
+      white-space:normal;
+      line-height:1.15;
+      max-width:280px;
     }
   </style>
 </head>
@@ -94,10 +119,10 @@
   </div>
 
   <div id="svgWrap">
-    <div class="toolbar">
-      <button class="toolbtn" id="fitBtn">Ajustar</button>
-      <button class="toolbtn" id="resetBtn">Reset zoom</button>
-    </div>
+
+    <!-- ✅ BARRA SIEMPRE VISIBLE ABAJO -->
+    <div class="levelbarBottom" id="levelbarBottom"></div>
+
     <svg id="viz"></svg>
   </div>
 </div>
@@ -114,6 +139,7 @@ const LABELS = [
 const lvlSelects = ["lvl1","lvl2","lvl3","lvl4","lvl5"].map(id=>document.getElementById(id));
 const orderChips = document.getElementById("orderChips");
 const detail = document.getElementById("detail");
+const levelbarBottom = document.getElementById("levelbarBottom");
 
 function fillSelect(select, options, selected){
   select.innerHTML = "";
@@ -135,8 +161,20 @@ function updateChips(levels){
   });
 }
 
+/* ✅ NUEVO: dibuja la barra inferior fija */
+function updateLevelBarBottom(levels){
+  levelbarBottom.innerHTML = "";
+  levels.forEach((name, i)=>{
+    const pill = document.createElement("div");
+    pill.className = "levelpill";
+    pill.innerHTML = `<b>N${i+1}</b><span>${name}</span>`;
+    levelbarBottom.appendChild(pill);
+  });
+}
+
 lvlSelects.forEach((sel,i)=>fillSelect(sel, LABELS, DEFAULT_LEVELS[i] || LABELS[i]));
 updateChips(DEFAULT_LEVELS);
+updateLevelBarBottom(DEFAULT_LEVELS);
 
 async function loadRows(){
   const res = await fetch("./data.json");
@@ -168,7 +206,7 @@ function buildTree(rows, levels){
   return root;
 }
 
-// --- D3 tree with wrapped text and variable node height ---
+// --- D3 tree ---
 const svg = d3.select("#viz");
 let g = svg.append("g");
 let zoom = d3.zoom().scaleExtent([0.2, 2.8]).on("zoom", (event)=>g.attr("transform", event.transform));
@@ -182,7 +220,7 @@ function wrapText(selection, width){
 
     let line = [];
     let lineNumber = 0;
-    const lineHeight = 1.25; // em
+    const lineHeight = 1.25;
     const x = text.attr("x");
     const y = text.attr("y");
     const dy = parseFloat(text.attr("dy") || 0);
@@ -206,44 +244,6 @@ function wrapText(selection, width){
   });
 }
 
-/* ✅ NUEVO: Encabezados con el nombre del campo por nivel */
-function updateLevelHeaders(levels, nodeCardWidth){
-  let headerG = g.selectAll("g.levelHeaders").data([null]);
-  headerG = headerG.join("g").attr("class","levelHeaders");
-
-  const headerH = 34;
-  const headerY = -60; // más arriba del árbol
-  const colStep = nodeCardWidth + 90;
-
-  const data = levels.map((name, i)=>({
-    name,
-    x: i * colStep
-  }));
-
-  const headers = headerG.selectAll("g.h").data(data, d=>d.name + "-" + d.x);
-
-  const enter = headers.enter().append("g").attr("class","h");
-  enter.append("rect");
-  enter.append("text");
-
-  const all = enter.merge(headers);
-
-  all.attr("transform", d => `translate(${d.x},${headerY})`);
-
-  all.select("rect")
-    .attr("x", 0)
-    .attr("y", 0)
-    .attr("width", nodeCardWidth)
-    .attr("height", headerH);
-
-  all.select("text")
-    .attr("x", 12)
-    .attr("y", 22)
-    .text(d => d.name);
-
-  headers.exit().remove();
-}
-
 function render(treeData){
   svg.selectAll("*").remove();
   g = svg.append("g");
@@ -254,19 +254,12 @@ function render(treeData){
 
   const root = d3.hierarchy(treeData);
 
-  const nodeCardWidth = 260;  // fixed width card
+  const nodeCardWidth = 260;
   const textWrapWidth = nodeCardWidth - 22;
-
-  // ✅ Obtiene niveles actuales y dibuja headers arriba
-  const currentLevels = getLevelsFromUI();
 
   const treeLayout = d3.tree().nodeSize([90, nodeCardWidth + 90]);
   treeLayout(root);
 
-  // ✅ Dibuja los rectángulos con el nombre de cada campo
-  updateLevelHeaders(currentLevels, nodeCardWidth);
-
-  // links
   g.selectAll(".link")
     .data(root.links())
     .join("path")
@@ -298,7 +291,6 @@ function render(treeData){
       detail.textContent = lines.join("\n");
     });
 
-  // provisional rect
   nodes.append("rect")
     .attr("x", 0)
     .attr("y", -28)
@@ -338,8 +330,8 @@ function render(treeData){
       .attr("y", (h/2) - 12);
   });
 
+  // Ajuste automático al renderizar
   fitToView();
-
   function fitToView(){
     const bounds = g.node().getBBox();
     const fullWidth = width;
@@ -352,13 +344,17 @@ function render(treeData){
     const translate = [fullWidth / 2 - scale * midX, fullHeight / 2 - scale * midY];
     svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale));
   }
-
-  document.getElementById("fitBtn").onclick = fitToView;
-  document.getElementById("resetBtn").onclick = ()=>svg.transition().duration(300).call(zoom.transform, d3.zoomIdentity);
 }
 
 function getLevelsFromUI(){
   const levels = lvlSelects.map(s=>s.value);
+  const used=newSetFix(levels);
+  updateChips(used);
+  updateLevelBarBottom(used);   // ✅ actualiza barra inferior
+  return used;
+}
+
+function newSetFix(levels){
   const used=new Set();
   for(let i=0;i<levels.length;i++){
     if(used.has(levels[i])){
@@ -368,7 +364,6 @@ function getLevelsFromUI(){
     }
     used.add(levels[i]);
   }
-  updateChips(levels);
   return levels;
 }
 
@@ -390,4 +385,3 @@ document.getElementById("renderBtn").onclick = ()=>{
 </script>
 </body>
 </html>
-
