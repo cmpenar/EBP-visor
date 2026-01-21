@@ -3,13 +3,14 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Visor EBP – Árbol interactivo </title>
+  <title>Visor EBP – Árbol interactivo</title>
   <style>
     :root{ --bg:#f6f8fb; --card:#fff; --ink:#0f172a; --muted:#64748b; --line:#cbd5e1; --accent:#1d4ed8;}
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--ink);}
     header{padding:14px 16px;background:linear-gradient(90deg,#0b2e4a,#0b3a68);color:#fff;}
     header h1{margin:0;font-size:18px;font-weight:700}
     header p{margin:6px 0 0;font-size:12px;opacity:.9}
+
     .wrap{display:grid;grid-template-columns:320px 1fr;gap:12px;padding:12px;height:calc(100vh - 64px);box-sizing:border-box;}
     .panel{background:var(--card);border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 1px 4px rgba(15,23,42,.06);overflow:auto}
     .panel .inner{padding:12px;}
@@ -21,30 +22,34 @@
     .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
     .chip{font-size:11px;padding:4px 8px;border-radius:999px;background:#eef2ff;border:1px solid #e0e7ff;color:#3730a3}
     .hint{margin-top:10px;padding:10px;border-radius:12px;background:#f1f5f9;border:1px dashed #cbd5e1;font-size:12px;color:#334155}
+
     #svgWrap{position:relative}
     svg{width:100%;height:100%;display:block;background:var(--card);border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 1px 4px rgba(15,23,42,.06);}
+
     .node rect{fill:#fff;stroke:#94a3b8;stroke-width:1.2;rx:10;ry:10}
     .node .title{font-size:12px;fill:#0f172a;font-weight:650}
     .node .meta{font-size:10px;fill:#64748b}
     .link{fill:none;stroke:#94a3b8;stroke-width:1.2;opacity:.9}
     .node:hover rect{stroke:var(--accent);stroke-width:2}
-    @media(max-width:980px){ .wrap{grid-template-columns:1fr; height:auto} svg{height:75vh}}
 
-    /* ✅ Barra inferior fija (como botones, pero abajo) */
-    .levelbarBottom{
-      position:absolute;
-      left:12px;
-      right:12px;
-      bottom:12px;
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      align-items:center;
-      z-index:10;
-      pointer-events:auto;
+    @media(max-width:980px){
+      .wrap{grid-template-columns:1fr; height:auto}
+      svg{height:75vh}
     }
 
-    .levelpill{
+    /* ✅ Labels inferiores alineados por columna */
+    .colLabels {
+      position:absolute;
+      left:0;
+      right:0;
+      bottom:10px;
+      height:auto;
+      pointer-events:none; /* no bloquea el drag/zoom */
+      z-index:10;
+    }
+    .colLabel {
+      position:absolute;
+      transform:translateX(-50%);
       display:flex;
       align-items:center;
       gap:8px;
@@ -52,14 +57,13 @@
       border-radius:12px;
       background:#0f172a;
       color:#fff;
-      border:0;
-      font-weight:800;
       font-size:12px;
+      font-weight:800;
       opacity:.92;
       box-shadow:0 6px 16px rgba(15,23,42,.18);
-      max-width:340px;
+      max-width:280px;
     }
-    .levelpill b{
+    .colLabel b{
       background:rgba(255,255,255,.18);
       padding:2px 8px;
       border-radius:999px;
@@ -67,18 +71,17 @@
       font-weight:900;
       white-space:nowrap;
     }
-
-    /* ✅ no cortamos texto: lo dejamos en varias líneas */
-    .levelpill span{
-      white-space:normal;
+    .colLabel span{
+      white-space:normal;      /* ✅ no cortar */
       line-height:1.15;
-      max-width:280px;
+      max-width:220px;
     }
   </style>
 </head>
+
 <body>
 <header>
-  <h1>Visor EBP </h1>
+  <h1>Visor EBP</h1>
   <p>Estrategia de País del BID 2024 -2027 | Costa Rica</p>
 </header>
 
@@ -119,10 +122,8 @@
   </div>
 
   <div id="svgWrap">
-
-    <!-- ✅ BARRA SIEMPRE VISIBLE ABAJO -->
-    <div class="levelbarBottom" id="levelbarBottom"></div>
-
+    <!-- ✅ contenedor de labels (abajo) -->
+    <div class="colLabels" id="colLabels"></div>
     <svg id="viz"></svg>
   </div>
 </div>
@@ -130,7 +131,6 @@
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 <script>
 const DEFAULT_LEVELS = ["Área Prioritaria","Objetivo Estratégico","Impacto Esperado","Operaciones vinculadas","Indicador"];
-
 const LABELS = [
   "Área Prioritaria","Objetivo Estratégico","Impacto Esperado","Operaciones vinculadas",
   "Cooperaciones técnicas vinculadas","Indicador","Año","Fuente"
@@ -139,7 +139,7 @@ const LABELS = [
 const lvlSelects = ["lvl1","lvl2","lvl3","lvl4","lvl5"].map(id=>document.getElementById(id));
 const orderChips = document.getElementById("orderChips");
 const detail = document.getElementById("detail");
-const levelbarBottom = document.getElementById("levelbarBottom");
+const colLabelsEl = document.getElementById("colLabels");
 
 function fillSelect(select, options, selected){
   select.innerHTML = "";
@@ -161,20 +161,8 @@ function updateChips(levels){
   });
 }
 
-/* ✅ NUEVO: dibuja la barra inferior fija */
-function updateLevelBarBottom(levels){
-  levelbarBottom.innerHTML = "";
-  levels.forEach((name, i)=>{
-    const pill = document.createElement("div");
-    pill.className = "levelpill";
-    pill.innerHTML = `<b>N${i+1}</b><span>${name}</span>`;
-    levelbarBottom.appendChild(pill);
-  });
-}
-
 lvlSelects.forEach((sel,i)=>fillSelect(sel, LABELS, DEFAULT_LEVELS[i] || LABELS[i]));
 updateChips(DEFAULT_LEVELS);
-updateLevelBarBottom(DEFAULT_LEVELS);
 
 async function loadRows(){
   const res = await fetch("./data.json");
@@ -206,10 +194,23 @@ function buildTree(rows, levels){
   return root;
 }
 
-// --- D3 tree ---
 const svg = d3.select("#viz");
 let g = svg.append("g");
-let zoom = d3.zoom().scaleExtent([0.2, 2.8]).on("zoom", (event)=>g.attr("transform", event.transform));
+
+// Guardamos el root de d3 para calcular columnas y reposicionar labels
+let ROOT_HIER = null;
+let CURRENT_LEVELS = [...DEFAULT_LEVELS];
+let NODE_CARD_WIDTH = 260;
+let COL_STEP = NODE_CARD_WIDTH + 90;
+
+// zoom/pan
+let zoom = d3.zoom()
+  .scaleExtent([0.2, 2.8])
+  .on("zoom", (event)=>{
+    g.attr("transform", event.transform);
+    positionColumnLabels(); // ✅ clave: recalcula al mover/zoom
+  });
+
 svg.call(zoom);
 
 function wrapText(selection, width){
@@ -244,6 +245,45 @@ function wrapText(selection, width){
   });
 }
 
+/* ✅ crea/actualiza los labels inferiores (uno por nivel) */
+function renderColumnLabels(levels){
+  colLabelsEl.innerHTML = "";
+  levels.forEach((name, i)=>{
+    const div = document.createElement("div");
+    div.className = "colLabel";
+    div.dataset.depth = String(i+1);     // depth 1..5 (root es 0)
+    div.innerHTML = `<b>N${i+1}</b><span>${name}</span>`;
+    colLabelsEl.appendChild(div);
+  });
+}
+
+/* ✅ calcula la X de cada columna en PANTALLA y mueve los labels */
+function positionColumnLabels(){
+  if(!ROOT_HIER) return;
+
+  const t = d3.zoomTransform(svg.node());
+
+  // Para cada depth (1..5), buscamos el X (en coords del layout) de esa columna.
+  // En este árbol, la columna se define por d.y (horizontal).
+  // Tomamos la mediana/ promedio de los nodos de ese depth para ser robustos.
+  for(let depth=1; depth<=5; depth++){
+    const nodesAtDepth = ROOT_HIER.descendants().filter(d=>d.depth === depth);
+    if(nodesAtDepth.length === 0) continue;
+
+    const ys = nodesAtDepth.map(d=>d.y).sort((a,b)=>a-b);
+    const yMed = ys[Math.floor(ys.length/2)];
+
+    // Convertimos ese y (layout) a X en pantalla usando el transform:
+    // pantallaX = t.applyX(yLayout)
+    const screenX = t.applyX(yMed) + svg.node().getBoundingClientRect().left - document.getElementById("svgWrap").getBoundingClientRect().left;
+
+    const label = colLabelsEl.querySelector(`.colLabel[data-depth="${depth}"]`);
+    if(label){
+      label.style.left = `${screenX}px`;
+    }
+  }
+}
+
 function render(treeData){
   svg.selectAll("*").remove();
   g = svg.append("g");
@@ -252,16 +292,18 @@ function render(treeData){
   const width = svg.node().clientWidth;
   const height = svg.node().clientHeight;
 
-  const root = d3.hierarchy(treeData);
+  ROOT_HIER = d3.hierarchy(treeData);
 
   const nodeCardWidth = 260;
+  NODE_CARD_WIDTH = nodeCardWidth;
   const textWrapWidth = nodeCardWidth - 22;
 
   const treeLayout = d3.tree().nodeSize([90, nodeCardWidth + 90]);
-  treeLayout(root);
+  treeLayout(ROOT_HIER);
 
+  // links
   g.selectAll(".link")
-    .data(root.links())
+    .data(ROOT_HIER.links())
     .join("path")
     .attr("class","link")
     .attr("d", d3.linkHorizontal()
@@ -270,7 +312,7 @@ function render(treeData){
     );
 
   const nodes = g.selectAll(".node")
-    .data(root.descendants())
+    .data(ROOT_HIER.descendants())
     .join("g")
     .attr("class","node")
     .attr("transform", d => `translate(${d.y},${d.x})`)
@@ -330,7 +372,7 @@ function render(treeData){
       .attr("y", (h/2) - 12);
   });
 
-  // Ajuste automático al renderizar
+  // Ajustar al renderizar y luego posicionar labels
   fitToView();
   function fitToView(){
     const bounds = g.node().getBBox();
@@ -342,19 +384,23 @@ function render(treeData){
 
     const scale = 0.95 / Math.max(bounds.width / fullWidth, bounds.height / fullHeight);
     const translate = [fullWidth / 2 - scale * midX, fullHeight / 2 - scale * midY];
-    svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale));
+    svg.transition().duration(400).call(
+      zoom.transform,
+      d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale)
+    ).on("end", ()=>{
+      positionColumnLabels(); // ✅ asegura alineación final
+    });
   }
+
+  // ✅ inicializa/actualiza labels
+  renderColumnLabels(CURRENT_LEVELS);
+  positionColumnLabels();
 }
 
 function getLevelsFromUI(){
   const levels = lvlSelects.map(s=>s.value);
-  const used=newSetFix(levels);
-  updateChips(used);
-  updateLevelBarBottom(used);   // ✅ actualiza barra inferior
-  return used;
-}
 
-function newSetFix(levels){
+  // enforce uniqueness
   const used=new Set();
   for(let i=0;i<levels.length;i++){
     if(used.has(levels[i])){
@@ -364,6 +410,7 @@ function newSetFix(levels){
     }
     used.add(levels[i]);
   }
+  updateChips(levels);
   return levels;
 }
 
@@ -371,15 +418,15 @@ let ROWS_CACHE=null;
 
 async function main(){
   ROWS_CACHE = await loadRows();
-  const levels = getLevelsFromUI();
-  const tree = buildTree(ROWS_CACHE, levels);
+  CURRENT_LEVELS = getLevelsFromUI();
+  const tree = buildTree(ROWS_CACHE, CURRENT_LEVELS);
   render(tree);
 }
 main();
 
 document.getElementById("renderBtn").onclick = ()=>{
-  const levels = getLevelsFromUI();
-  const tree = buildTree(ROWS_CACHE, levels);
+  CURRENT_LEVELS = getLevelsFromUI();
+  const tree = buildTree(ROWS_CACHE, CURRENT_LEVELS);
   render(tree);
 };
 </script>
