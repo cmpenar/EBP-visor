@@ -823,6 +823,25 @@ function fitToViewLeftAnchored(){
   });
 }
 
+/* =========================================================
+   ✅ NUEVO: decidir color del texto para NODOS de Operaciones
+   ========================================================= */
+function getPrevioStatusForNode(d){
+  // Solo aplica si el nivel (columna) actual es "Operaciones vinculadas"
+  const levelName = CURRENT_LEVELS_ACTIVE[d.depth - 1]; // depth 1 => nivel 0
+  if(levelName !== "Operaciones vinculadas") return null;
+
+  // Si el nodo tiene filas asociadas, tomamos la primera para ver SI/NO
+  const rows = d.data?._rows || [];
+  if(rows.length === 0) return null;
+
+  const v = (rows[0]["Previo EBP 2024-2027"] ?? "").toString().trim().toUpperCase();
+  if(v === "SI") return "SI";
+  if(v === "NO") return "NO";
+  return null;
+}
+/* ========================================================= */
+
 function render(treeData){
   svg.selectAll("*").remove();
   g = svg.append("g");
@@ -896,7 +915,14 @@ function render(treeData){
     .attr("class","title")
     .attr("x", 20)
     .attr("y", 0)
-    .text(d=>d.data.name);
+    .text(d=>d.data.name)
+    // ✅ AQUÍ el color del texto según Previo EBP (solo en Operaciones)
+    .attr("fill", d=>{
+      const st = getPrevioStatusForNode(d);
+      if(st === "SI") return "#16a34a";  // verde
+      if(st === "NO") return "#7c3aed";  // morado
+      return null; // usa el default del CSS (.node .title)
+    });
 
   title.each(function(d){
     const w = nodeWidth(d) - 36;
@@ -982,3 +1008,4 @@ window.addEventListener("resize", ()=>{
 </script>
 </body>
 </html>
+
