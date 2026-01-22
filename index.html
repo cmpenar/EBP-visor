@@ -10,7 +10,7 @@
       --labelFont: 12px;
     }
 
-    /* ✅ Quita scroll vertical global */
+    /* ✅ Sin scroll vertical global */
     html, body { height: 100%; overflow: hidden; }
 
     body{
@@ -33,7 +33,7 @@
       box-sizing:border-box;
     }
 
-    /* ✅ panel izquierdo con scroll interno, pero sin que la página scrollee */
+    /* Panel izquierdo con scroll interno (la página no scrollea) */
     .panel{
       background:var(--card);
       border:1px solid #e2e8f0;
@@ -52,7 +52,7 @@
     .chip{font-size:11px;padding:4px 8px;border-radius:999px;background:#eef2ff;border:1px solid #e0e7ff;color:#3730a3}
     .hint{margin-top:10px;padding:10px;border-radius:12px;background:#f1f5f9;border:1px dashed #cbd5e1;font-size:12px;color:#334155}
 
-    #svgWrap{position:relative; overflow:hidden;} /* ✅ evita scrollbars */
+    #svgWrap{position:relative; overflow:hidden;}
     svg{
       width:100%;
       height:100%;
@@ -74,15 +74,17 @@
       svg{height:75vh}
     }
 
-    /* labels inferiores */
+    /* ✅ contenedor de chips */
     .colLabels{
       position:absolute;
       left:0; right:0;
-      bottom:10px;
+      bottom:0;              /* lo ajustamos por JS dinámicamente */
       pointer-events:none;
       z-index:10;
       height:0;
     }
+
+    /* ✅ chip individual */
     .colLabel{
       position:absolute;
       transform:translateX(-50%);
@@ -97,7 +99,8 @@
       font-weight:800;
       opacity:.92;
       box-shadow:0 6px 16px rgba(15,23,42,.18);
-      max-width:340px;
+      max-width:360px;
+      white-space:normal;
     }
     .colLabel b{
       background:rgba(255,255,255,.18);
@@ -110,7 +113,7 @@
     .colLabel span{
       white-space:normal;
       line-height:1.15;
-      max-width:260px;
+      max-width:280px;
     }
   </style>
 </head>
@@ -197,14 +200,12 @@ async function loadRows(){
 
 function buildTree(rows, levels){
   const root = {name:"EBP Costa Rica 2024-2027", children:[]};
-
   function getChild(parent, name){
     if(!parent.children) parent.children=[];
     let c = parent.children.find(x=>x.name===name);
     if(!c){ c={name, children:[], _count:0, _rows:[]}; parent.children.push(c); }
     return c;
   }
-
   rows.forEach(r=>{
     let p=root;
     levels.forEach(lvl=>{
@@ -215,7 +216,6 @@ function buildTree(rows, levels){
       p._rows.push(r);
     });
   });
-
   return root;
 }
 
@@ -245,7 +245,27 @@ function renderColumnLabels(levels){
   });
 }
 
-/* ✅ Oculta labels si su columna no está visible */
+/* ✅ Ajusta automáticamente la altura del footer para que no se corte */
+function autoLiftLabels(){
+  // mide el label más alto visible y sube el contenedor para que entre
+  const wrapRect = svgWrapEl.getBoundingClientRect();
+  const labels = Array.from(colLabelsEl.querySelectorAll(".colLabel"))
+    .filter(el => el.style.display !== "none");
+
+  let maxH = 0;
+  for(const el of labels){
+    maxH = Math.max(maxH, el.getBoundingClientRect().height);
+  }
+
+  // margen seguro + altura del chip
+  const safeBottom = 14;            // margen desde el borde inferior
+  const lift = Math.ceil(maxH + safeBottom);
+
+  // si el chip es alto (por zoom), lo subimos más
+  colLabelsEl.style.bottom = `${lift}px`;
+}
+
+/* ✅ Posiciona chips alineados a columnas, oculta fuera de vista y sube auto */
 function positionColumnLabels(){
   if(!ROOT_HIER) return;
 
@@ -256,9 +276,10 @@ function positionColumnLabels(){
   const wrapRect = svgWrapEl.getBoundingClientRect();
   const svgOffsetX = svgRect.left - wrapRect.left;
 
-  // rango visible horizontal dentro del contenedor
-  const visibleMinX = 0;
-  const visibleMaxX = wrapRect.width;
+  // margen para que no se corten a los lados
+  const margin = 60;
+  const visibleMinX = margin;
+  const visibleMaxX = wrapRect.width - margin;
 
   for(let depth=1; depth<=5; depth++){
     const label = colLabelsEl.querySelector(`.colLabel[data-depth="${depth}"]`);
@@ -270,29 +291,31 @@ function positionColumnLabels(){
       continue;
     }
 
-    // mediana de d.y
+    // mediana robusta de columna (d.y)
     const ys = nodesAtDepth.map(d=>d.y).sort((a,b)=>a-b);
     const yMed = ys[Math.floor(ys.length/2)];
 
-    // centro de columna (centro del card)
+    // centro de columna = d.y + mitad del card
     const colCenterLayoutX = yMed + (NODE_CARD_WIDTH / 2);
 
-    // a coords pantalla con zoom
+    // a pantalla con zoom
     const screenX = t.applyX(colCenterLayoutX);
 
     // a coords del contenedor
     const leftPx = svgOffsetX + screenX;
 
-    // ✅ si no se ve, NO mostrar
+    // ✅ oculta si su columna no se ve
     if(leftPx < visibleMinX || leftPx > visibleMaxX){
       label.style.display = "none";
       continue;
-    } else {
-      label.style.display = "";
     }
 
+    label.style.display = "";
     label.style.left = `${leftPx}px`;
   }
+
+  // ✅ luego de mostrar/ocultar, sube para que nunca se corte
+  autoLiftLabels();
 }
 
 let zoom = d3.zoom()
@@ -450,7 +473,6 @@ function render(treeData){
 function getLevelsFromUI(){
   const levels = lvlSelects.map(s=>s.value);
   const used=new Set();
-
   for(let i=0;i<levels.length;i++){
     if(used.has(levels[i])){
       const repl = LABELS.find(x=>!used.has(x));
@@ -478,6 +500,11 @@ document.getElementById("renderBtn").onclick = ()=>{
   const tree = buildTree(ROWS_CACHE, CURRENT_LEVELS);
   render(tree);
 };
+
+// ✅ si cambias tamaño de ventana, recalcula posiciones y lift
+window.addEventListener("resize", ()=>{
+  positionColumnLabels();
+});
 </script>
 </body>
 </html>
