@@ -124,7 +124,6 @@
     }
     .hintBtn:hover{filter:brightness(.95)}
 
-    /* ✅ botón reset */
     .resetBtn{
       padding:10px 12px;
       border-radius:10px;
@@ -223,9 +222,6 @@
       <div style="height:10px"></div>
       <button id="renderBtn">Renderizar</button>
 
-      <!-- ✅ QUITADO: chips de orden (lo que marcaste en rojo) -->
-
-      <!-- ✅ Caja de filtros (tipo gestos) + botón reset -->
       <div class="hint" style="margin-top:12px">
         <b>Filtros</b>
 
@@ -248,8 +244,6 @@
           <button class="hintBtn" id="applyFiltersBtn">Aplicar filtros y renderizar</button>
           <button class="resetBtn" id="resetBtn">Reestablecer</button>
         </div>
-
-        <!-- ✅ QUITADO: texto de “Gestos...” (lo que marcaste en rojo) -->
       </div>
     </div>
   </div>
@@ -295,7 +289,6 @@ function getLevelsFromUI(){
   const raw = lvlSelects.map(s=>s.value);
   const active = raw.filter(v => v !== NONE);
 
-  // sin duplicados, preservando orden
   const used = new Set();
   const fixed = [];
   for(const v of active){
@@ -305,7 +298,7 @@ function getLevelsFromUI(){
 }
 
 /* =========================
-   FILTROS
+   FILTROS (mutuamente excluyentes por opciones)
 ========================= */
 const fOperacion = document.getElementById("fOperacion");
 const fArea = document.getElementById("fArea");
@@ -315,39 +308,87 @@ const resetBtn = document.getElementById("resetBtn");
 
 const FILTER_ANY = "(Todos)";
 
+let ROWS_CACHE = null;
+
 function uniqSorted(arr){
   return Array.from(new Set(arr.filter(Boolean))).sort((a,b)=>a.localeCompare(b,"es"));
-}
-function fillFilterSelect(sel, values){
-  const opts = [FILTER_ANY, ...values];
-  sel.innerHTML = "";
-  opts.forEach(v=>{
-    const o = document.createElement("option");
-    o.value = v;
-    o.textContent = v;
-    sel.appendChild(o);
-  });
-  sel.value = FILTER_ANY;
 }
 function normalizeVal(v){
   const s = (v ?? "").toString().trim();
   return s ? s : "(Sin dato)";
 }
-function applyRowFilters(rows){
-  const op = fOperacion.value;
-  const ar = fArea.value;
-  const ob = fObjetivo.value;
 
+function setOptionsPreserveValue(selectEl, values){
+  const prev = selectEl.value || FILTER_ANY;
+  const opts = [FILTER_ANY, ...values];
+
+  selectEl.innerHTML = "";
+  for(const v of opts){
+    const o = document.createElement("option");
+    o.value = v;
+    o.textContent = v;
+    selectEl.appendChild(o);
+  }
+
+  // si el valor previo ya no existe, cae a (Todos)
+  const canKeep = opts.includes(prev);
+  selectEl.value = canKeep ? prev : FILTER_ANY;
+}
+
+function filterRowsByCriteria(rows, crit){
+  // crit: { op, area, obj } donde cada uno puede ser FILTER_ANY
   return rows.filter(r=>{
     const vOp = normalizeVal(r["Operaciones vinculadas"]);
     const vAr = normalizeVal(r["Área Prioritaria"]);
     const vOb = normalizeVal(r["Objetivo Estratégico"]);
 
-    if(op !== FILTER_ANY && vOp !== op) return false;
-    if(ar !== FILTER_ANY && vAr !== ar) return false;
-    if(ob !== FILTER_ANY && vOb !== ob) return false;
+    if(crit.op && crit.op !== FILTER_ANY && vOp !== crit.op) return false;
+    if(crit.area && crit.area !== FILTER_ANY && vAr !== crit.area) return false;
+    if(crit.obj && crit.obj !== FILTER_ANY && vOb !== crit.obj) return false;
     return true;
   });
+}
+
+/* ✅ Actualiza los 3 selects para que sean “mutuamente excluyentes”
+   - Si eliges 1, los otros 2 se recalculan con base en la selección actual
+   - Mantiene el valor actual si sigue siendo válido; si no, vuelve a (Todos)
+*/
+function refreshFilterOptions(){
+  if(!ROWS_CACHE) return;
+
+  const current = {
+    op: fOperacion.value || FILTER_ANY,
+    area: fArea.value || FILTER_ANY,
+    obj: fObjetivo.value || FILTER_ANY
+  };
+
+  // Opciones posibles para Operación, dado Área+Objetivo actuales
+  const rowsForOp = filterRowsByCriteria(ROWS_CACHE, { area: current.area, obj: current.obj });
+  const ops = uniqSorted(rowsForOp.map(r=>normalizeVal(r["Operaciones vinculadas"])));
+  setOptionsPreserveValue(fOperacion, ops);
+
+  // Releer por si se cayó a (Todos)
+  current.op = fOperacion.value || FILTER_ANY;
+
+  // Opciones posibles para Área, dado Operación+Objetivo actuales
+  const rowsForArea = filterRowsByCriteria(ROWS_CACHE, { op: current.op, obj: current.obj });
+  const areas = uniqSorted(rowsForArea.map(r=>normalizeVal(r["Área Prioritaria"])));
+  setOptionsPreserveValue(fArea, areas);
+
+  current.area = fArea.value || FILTER_ANY;
+
+  // Opciones posibles para Objetivo, dado Operación+Área actuales
+  const rowsForObj = filterRowsByCriteria(ROWS_CACHE, { op: current.op, area: current.area });
+  const objs = uniqSorted(rowsForObj.map(r=>normalizeVal(r["Objetivo Estratégico"])));
+  setOptionsPreserveValue(fObjetivo, objs);
+}
+
+function applyRowFilters(rows){
+  const op = fOperacion.value || FILTER_ANY;
+  const ar = fArea.value || FILTER_ANY;
+  const ob = fObjetivo.value || FILTER_ANY;
+
+  return filterRowsByCriteria(rows, { op, area: ar, obj: ob });
 }
 
 /* =========================
@@ -540,7 +581,6 @@ function clearSelection(){
   g.selectAll(".node").classed("selected", false).classed("path", false);
   g.selectAll(".link").classed("path", false);
 }
-
 function applyColumnAlignment(selectedNode){
   if(!selectedNode) return;
 
@@ -580,7 +620,6 @@ function applyColumnAlignment(selectedNode){
     .transition().duration(520)
     .attr("d", linkPath);
 }
-
 function resetToBaseLayout(){
   if(!ROOT_HIER) return;
 
@@ -598,7 +637,6 @@ function resetToBaseLayout(){
     .transition().duration(380)
     .attr("d", linkPathBase);
 }
-
 function zoomToPath(pathNodesArr){
   if(!pathNodesArr || pathNodesArr.length === 0) return;
 
@@ -788,21 +826,8 @@ function render(treeData){
 /* =========================
    ORQUESTACIÓN
 ========================= */
-let ROWS_CACHE = null;
-
-function buildFiltersFromRows(rows){
-  const ops = uniqSorted(rows.map(r=>normalizeVal(r["Operaciones vinculadas"])));
-  const areas = uniqSorted(rows.map(r=>normalizeVal(r["Área Prioritaria"])));
-  const objetivos = uniqSorted(rows.map(r=>normalizeVal(r["Objetivo Estratégico"])));
-
-  fillFilterSelect(fOperacion, ops);
-  fillFilterSelect(fArea, areas);
-  fillFilterSelect(fObjetivo, objetivos);
-}
-
 function renderWithCurrentUI(){
   CURRENT_LEVELS_ACTIVE = getLevelsFromUI();
-
   const filteredRows = applyRowFilters(ROWS_CACHE);
   const tree = buildTree(filteredRows, CURRENT_LEVELS_ACTIVE);
   render(tree);
@@ -810,23 +835,23 @@ function renderWithCurrentUI(){
 
 async function main(){
   ROWS_CACHE = await loadRows();
-  buildFiltersFromRows(ROWS_CACHE);
+
+  // inicializar filtros con TODO el universo
+  fOperacion.innerHTML = `<option value="${FILTER_ANY}">${FILTER_ANY}</option>`;
+  fArea.innerHTML = `<option value="${FILTER_ANY}">${FILTER_ANY}</option>`;
+  fObjetivo.innerHTML = `<option value="${FILTER_ANY}">${FILTER_ANY}</option>`;
+  fOperacion.value = FILTER_ANY; fArea.value = FILTER_ANY; fObjetivo.value = FILTER_ANY;
+
+  // cargar opciones mutuamente consistentes
+  refreshFilterOptions();
+
   renderWithCurrentUI();
 }
 main();
 
-document.getElementById("renderBtn").onclick = ()=>{
-  renderWithCurrentUI();
-};
-applyFiltersBtn.onclick = ()=>{
-  renderWithCurrentUI();
-};
+document.getElementById("renderBtn").onclick = ()=>{ renderWithCurrentUI(); };
+applyFiltersBtn.onclick = ()=>{ renderWithCurrentUI(); };
 
-/* ✅ REESTABLECER:
-   - filtros a (Todos)
-   - niveles a defaults
-   - limpiar selección/zoom al re-render
-*/
 resetBtn.onclick = ()=>{
   // reset niveles
   lvlSelects.forEach((sel,i)=>fillSelect(sel, LEVEL_OPTIONS, DEFAULT_LEVELS[i] || NONE));
@@ -836,8 +861,20 @@ resetBtn.onclick = ()=>{
   fArea.value = FILTER_ANY;
   fObjetivo.value = FILTER_ANY;
 
+  refreshFilterOptions();
   renderWithCurrentUI();
 };
+
+/* ✅ MUTUA EXCLUSIÓN: cada cambio recalcula las listas de los otros */
+fOperacion.addEventListener("change", ()=>{
+  refreshFilterOptions();
+});
+fArea.addEventListener("change", ()=>{
+  refreshFilterOptions();
+});
+fObjetivo.addEventListener("change", ()=>{
+  refreshFilterOptions();
+});
 
 window.addEventListener("resize", ()=>{
   positionColumnLabels();
