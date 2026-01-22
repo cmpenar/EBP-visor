@@ -27,6 +27,11 @@
       /* ✅ FONDO CON IMAGEN EN EL ÁRBOL */
       --treeBgUrl: url("https://raw.githubusercontent.com/cmpenar/EBP-visor/main/Fondo.png");
       --treeBgOpacity: 0.2; /* ajusta 0.10–0.20 */
+
+      /* ✅ Colores del círculo */
+      --dotYes:#16a34a;   /* verde */
+      --dotNo:#7c3aed;    /* morado */
+      --dotUnknown:#94a3b8; /* gris */
     }
 
     html, body { height: 100%; overflow: hidden; }
@@ -301,14 +306,6 @@
       box-shadow:0 6px 16px rgba(15,23,42,.18);
       max-width:420px;
       white-space:normal;
-    }
-    .colLabel b{
-      background:rgba(255,255,255,.18);
-      padding:2px 10px;
-      border-radius:999px;
-      font-size:calc(var(--labelFont) - 1px);
-      font-weight:900;
-      white-space:nowrap;
     }
     .colLabel span{ white-space:normal; line-height:1.15; max-width:340px; }
 
@@ -824,21 +821,97 @@ function fitToViewLeftAnchored(){
 }
 
 /* =========================================================
-   ✅ NUEVO: decidir color del texto para NODOS de Operaciones
+   ✅ CÍRCULO POR "Previo EBP 2024-2027" SOLO EN OPERACIONES
    ========================================================= */
-function getPrevioStatusForNode(d){
-  // Solo aplica si el nivel (columna) actual es "Operaciones vinculadas"
-  const levelName = CURRENT_LEVELS_ACTIVE[d.depth - 1]; // depth 1 => nivel 0
-  if(levelName !== "Operaciones vinculadas") return null;
+const PREV_KEY = "Previo EBP 2024-2027";
+const DOT_R = 10;        // radio
+const DOT_PAD_X = 18;    // padding desde el borde derecho
+const DOT_CY = 0;        // centrado vertical
 
-  // Si el nodo tiene filas asociadas, tomamos la primera para ver SI/NO
-  const rows = d.data?._rows || [];
-  if(rows.length === 0) return null;
+function normPrevValue(v){
+  const s = (v ?? "").toString().trim().toUpperCase();
+  if(s === "SI" || s === "SÍ") return "SI";
+  if(s === "NO") return "NO";
+  return "";
+}
 
-  const v = (rows[0]["Previo EBP 2024-2027"] ?? "").toString().trim().toUpperCase();
-  if(v === "SI") return "SI";
-  if(v === "NO") return "NO";
-  return null;
+function computePrevStatusForNode(d){
+  // Solo aplica para nodos que agrupen filas
+  const rows = d?.data?._rows || [];
+  if(!rows.length) return "UNKNOWN";
+
+  let hasSI = false, hasNO = false;
+
+  for(const r of rows){
+    const val = normPrevValue(r[PREV_KEY]);
+    if(val === "SI") hasSI = true;
+    else if(val === "NO") hasNO = true;
+  }
+
+  if(hasSI && !hasNO) return "SI";
+  if(hasNO && !hasSI) return "NO";
+  if(hasSI && hasNO) return "MIX";
+  return "UNKNOWN";
+}
+
+function isOperacionNode(d){
+  // Es nodo de Operaciones si en el arreglo de niveles activos
+  // el label "Operaciones vinculadas" está en ese depth.
+  const operDepth = getDepthOfLevelName("Operaciones vinculadas");
+  return operDepth !== -1 && d.depth === operDepth;
+}
+
+function addPrevDotToOperacionNodes(nodesSelection){
+  // Crea/actualiza solo para los nodos de Operaciones
+  const opNodes = nodesSelection.filter(d => isOperacionNode(d));
+
+  // Defs para el medio círculo (MIX)
+  const defs = svg.select("defs").empty() ? svg.append("defs") : svg.select("defs");
+
+  defs.selectAll("linearGradient#prevMixGrad").data([1]).join("linearGradient")
+    .attr("id", "prevMixGrad")
+    .attr("x1", "0%").attr("x2", "100%")
+    .attr("y1", "0%").attr("y2", "0%")
+    .call(g=>{
+      g.selectAll("stop").data([
+        {o:"0%", c:getComputedStyle(document.documentElement).getPropertyValue("--dotYes").trim() || "#16a34a"},
+        {o:"50%", c:getComputedStyle(document.documentElement).getPropertyValue("--dotYes").trim() || "#16a34a"},
+        {o:"50%", c:getComputedStyle(document.documentElement).getPropertyValue("--dotNo").trim()  || "#7c3aed"},
+        {o:"100%",c:getComputedStyle(document.documentElement).getPropertyValue("--dotNo").trim()  || "#7c3aed"}
+      ]).join("stop")
+        .attr("offset", d=>d.o)
+        .attr("stop-color", d=>d.c);
+    });
+
+  // Agrega el circulo
+  opNodes.selectAll("circle.prevDot")
+    .data(d => [d], d => d.data.name)
+    .join("circle")
+    .attr("class", "prevDot")
+    .attr("r", DOT_R)
+    .attr("cx", d => nodeWidth(d) - DOT_PAD_X)
+    .attr("cy", DOT_CY)
+    .attr("stroke", "#0f172a")
+    .attr("stroke-opacity", 0.15)
+    .attr("stroke-width", 1)
+    .attr("fill", d => {
+      const st = computePrevStatusForNode(d);
+      const yes = getComputedStyle(document.documentElement).getPropertyValue("--dotYes").trim() || "#16a34a";
+      const no  = getComputedStyle(document.documentElement).getPropertyValue("--dotNo").trim()  || "#7c3aed";
+      const unk = getComputedStyle(document.documentElement).getPropertyValue("--dotUnknown").trim() || "#94a3b8";
+      if(st === "SI") return yes;
+      if(st === "NO") return no;
+      if(st === "MIX") return "url(#prevMixGrad)";
+      return unk;
+    })
+    .append("title")
+    .text(d => {
+      const st = computePrevStatusForNode(d);
+      if(st === "SI") return `${PREV_KEY}: SI`;
+      if(st === "NO") return `${PREV_KEY}: NO`;
+      if(st === "MIX") return `${PREV_KEY}: SI y NO (mezclado)`;
+      return `${PREV_KEY}: (Sin dato)`;
+    });
 }
 /* ========================================================= */
 
@@ -915,14 +988,7 @@ function render(treeData){
     .attr("class","title")
     .attr("x", 20)
     .attr("y", 0)
-    .text(d=>d.data.name)
-    // ✅ AQUÍ el color del texto según Previo EBP (solo en Operaciones)
-    .attr("fill", d=>{
-      const st = getPrevioStatusForNode(d);
-      if(st === "SI") return "#16a34a";  // verde
-      if(st === "NO") return "#7c3aed";  // morado
-      return null; // usa el default del CSS (.node .title)
-    });
+    .text(d=>d.data.name);
 
   title.each(function(d){
     const w = nodeWidth(d) - 36;
@@ -946,6 +1012,9 @@ function render(treeData){
     node.select("text.title")
       .attr("transform", `translate(0, ${centerShiftY})`);
   });
+
+  // ✅ agrega el círculo SOLO en Operaciones vinculadas
+  addPrevDotToOperacionNodes(nodes);
 
   renderColumnLabels(CURRENT_LEVELS_ACTIVE);
   fitToViewLeftAnchored();
@@ -1008,4 +1077,3 @@ window.addEventListener("resize", ()=>{
 </script>
 </body>
 </html>
-
