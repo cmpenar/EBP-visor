@@ -14,9 +14,9 @@
       --line:#cbd5e1;
       --accent:#1d4ed8;
 
-      --labelFont: 14px;        /* etiquetas inferiores */
-      --sel:#0b2e4a;            /* azul oscuro selección */
-      --nodeFont: 24px;         /* ✅ MÁS GRANDE */
+      --labelFont: 14px;
+      --sel:#0b2e4a;
+      --nodeFont: 26px; /* ⬆️ tamaño base de texto en nodos */
     }
 
     html, body { height: 100%; overflow: hidden; }
@@ -28,20 +28,61 @@
       color:var(--ink);
     }
 
+    /* ✅ Header MÁS GRANDE, centrado, con logo */
     header{
-      padding:14px 16px;
+      position:relative;
+      padding:22px 16px;
       background:linear-gradient(90deg,#0b2e4a,#0b3a68);
       color:#fff;
+      border-bottom:1px solid rgba(255,255,255,.12);
     }
-    header h1{margin:0;font-size:18px;font-weight:700}
-    header p{margin:6px 0 0;font-size:12px;opacity:.9}
+    .headerCenter{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:16px;
+      text-align:center;
+      width:100%;
+    }
+    .logo{
+      width:64px;
+      height:64px;
+      border-radius:14px;
+      background:rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.14);
+      overflow:hidden;
+      flex:0 0 auto;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .logo img{
+      width:100%;
+      height:100%;
+      object-fit:contain;
+      padding:10px;
+      box-sizing:border-box;
+      display:block;
+    }
+    header h1{
+      margin:0;
+      font-size:44px;   /* ⬆️ más grande */
+      line-height:1.03;
+      font-weight:950;
+      letter-spacing:.2px;
+    }
+    header p{
+      margin:8px 0 0;
+      font-size:16px;
+      opacity:.92
+    }
 
     .wrap{
       display:grid;
       grid-template-columns:320px 1fr;
       gap:12px;
       padding:12px;
-      height:calc(100vh - 64px);
+      height:calc(100vh - 116px); /* ajustado al header más alto */
       box-sizing:border-box;
     }
 
@@ -68,7 +109,7 @@
       background:#0ea5e9;
       color:#fff;
       border:0;
-      font-weight:700
+      font-weight:800
     }
     button:hover{filter:brightness(.95)}
 
@@ -112,7 +153,7 @@
     .node .title{
       font-size:var(--nodeFont);
       fill:#0f172a;
-      font-weight:750;
+      font-weight:800;
     }
     .link{
       fill:none;
@@ -143,6 +184,9 @@
     @media(max-width:980px){
       .wrap{grid-template-columns:1fr; height:auto}
       svg{height:75vh}
+      header h1{font-size:34px}
+      header p{font-size:14px}
+      .logo{width:54px;height:54px}
     }
 
     .colLabels{
@@ -188,8 +232,16 @@
 
 <body>
 <header>
-  <h1>Visor EBP</h1>
-  <p>Estrategia de País del BID 2024 -2027 | Costa Rica</p>
+  <div class="headerCenter">
+    <div class="logo" title="BID">
+      <!-- ✅ Logo BID desde tu link -->
+      <img src="https://portales.sre.gob.mx/dgvosc/images/phocagallery/bid.png" alt="Logo BID">
+    </div>
+    <div>
+      <h1>Visor EBP</h1>
+      <p>Estrategia de País del BID 2024 -2027 | Costa Rica</p>
+    </div>
+  </div>
 </header>
 
 <div class="wrap">
@@ -227,9 +279,15 @@
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 <script>
 const NONE = "(Ninguno)";
-const DEFAULT_LEVELS = ["Área Prioritaria","Objetivo Estratégico","Impacto Esperado", NONE, NONE];
 
-// sin Año/Fuente
+/* ✅ PRECARGA como pediste:
+   - Nivel 1: Área Prioritaria (si tú realmente quisiste "Área Estratégica" y existe en tu data,
+     dímelo y lo cambio exacto)
+   - Nivel 2: Objetivo Estratégico
+   - Nivel 3-5: Ninguno
+*/
+const DEFAULT_LEVELS = ["Área Prioritaria","Objetivo Estratégico", NONE, NONE, NONE];
+
 const LABELS_ALLOWED = [
   "Área Prioritaria",
   "Objetivo Estratégico",
@@ -255,6 +313,7 @@ function fillSelect(select, options, selected){
     select.appendChild(o);
   });
 }
+
 function updateChips(levelsActive){
   orderChips.innerHTML="";
   if(levelsActive.length === 0){
@@ -315,15 +374,15 @@ let g = svg.append("g");
 
 let ROOT_HIER = null;
 let CURRENT_LEVELS_ACTIVE = [];
-let NODE_CARD_WIDTH = 480;  // ✅ MÁS ANCHO
-let COL_STEP_X = 640;       // ✅ MÁS SEPARACIÓN
+let NODE_CARD_WIDTH = 520;
+let COL_STEP_X = 720;
 
 let BASE_POS = new Map();
 
 function setNodeFontByZoom(k){
-  const base = 24;                 // ✅ base
+  const base = 26;
   const scaled = base * k;
-  const clamped = Math.max(18, Math.min(40, scaled));  // ✅ mínimo más grande
+  const clamped = Math.max(18, Math.min(44, scaled));
   document.documentElement.style.setProperty("--nodeFont", clamped.toFixed(1) + "px");
 }
 function setLabelFontByZoom(k){
@@ -500,7 +559,7 @@ function zoomToPath(pathNodesArr){
     const x = n._y ?? n.y;
     const y = n._x ?? n.x;
     const w = NODE_CARD_WIDTH;
-    const h = (n.data._h || 120);
+    const h = (n.data._h || 160);
 
     minX = Math.min(minX, x);
     maxX = Math.max(maxX, x + w);
@@ -514,7 +573,7 @@ function zoomToPath(pathNodesArr){
   const svgW = svg.node().clientWidth;
   const svgH = svg.node().clientHeight;
 
-  const pad = 160;
+  const pad = 180;
   const scale = Math.min(3.0, Math.max(0.45,
     0.95 / Math.max(boundsW / (svgW - pad), boundsH / (svgH - pad))
   ));
@@ -538,17 +597,14 @@ function render(treeData){
   g = svg.append("g");
   svg.call(zoom);
 
-  const width = svg.node().clientWidth;
-  const height = svg.node().clientHeight;
-
   ROOT_HIER = d3.hierarchy(treeData);
 
-  const colGap = 160;
+  const colGap = 200;
   COL_STEP_X = NODE_CARD_WIDTH + colGap;
 
-  const textWrapWidth = NODE_CARD_WIDTH - 24;
+  const textWrapWidth = NODE_CARD_WIDTH - 28;
 
-  const rowGap = 190;
+  const rowGap = 220;
   const treeLayout = d3.tree().nodeSize([rowGap, 1]);
   treeLayout(ROOT_HIER);
 
@@ -617,13 +673,13 @@ function render(treeData){
 
   nodes.append("rect")
     .attr("x", 0)
-    .attr("y", -40)
+    .attr("y", -44)
     .attr("width", NODE_CARD_WIDTH)
-    .attr("height", 80);
+    .attr("height", 88);
 
   const title = nodes.append("text")
     .attr("class","title")
-    .attr("x", 16)
+    .attr("x", 18)
     .attr("y", 0)
     .text(d=>d.data.name);
 
@@ -634,7 +690,7 @@ function render(treeData){
     const textEl = node.select("text.title").node();
     const bbox = textEl.getBBox();
 
-    const padY = 26;
+    const padY = 30;
     const h = bbox.height + padY * 2;
     d.data._h = h;
 
@@ -649,65 +705,68 @@ function render(treeData){
 
   renderColumnLabels(CURRENT_LEVELS_ACTIVE);
 
-  // ✅ Fit más “cerca” para lectura
   fitToView();
   function fitToView(){
     const bounds = g.node().getBBox();
     if (bounds.width === 0 || bounds.height === 0) return;
 
+    const svgW = svg.node().clientWidth;
+    const svgH = svg.node().clientHeight;
+
     const midX = bounds.x + bounds.width / 2;
     const midY = bounds.y + bounds.height / 2;
 
-    const scale = 0.82 / Math.max(bounds.width / width, bounds.height / height); // ✅ menos alejado
-    const translate = [width / 2 - scale * midX, height / 2 - scale * midY];
+    const scale = 0.92 / Math.max(bounds.width / svgW, bounds.height / svgH);
+    const translate = [svgW / 2 - scale * midX, svgH / 2 - scale * midY];
 
-    svg.transition().duration(450).call(
+    svg.transition().duration(400).call(
       zoom.transform,
-      d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale)
-    ).on("end", ()=>positionColumnLabels());
+      d3.zoomIdentity.translate(translate[0], translate[1]).scale(Math.min(scale, 1.2))
+    ).on("end", ()=>{
+      positionColumnLabels();
+    });
   }
 
-  setTimeout(positionColumnLabels, 480);
+  setTimeout(positionColumnLabels, 450);
 }
 
 function getLevelsFromUI(){
-  const levelsUI = lvlSelects.map(s=>s.value);
+  const raw = lvlSelects.map(s=>s.value);
 
+  const active = raw.filter(v => v !== NONE);
   const used = new Set();
-  for(let i=0;i<levelsUI.length;i++){
-    const v = levelsUI[i];
-    if(v === NONE) continue;
-    if(used.has(v)){
-      levelsUI[i] = NONE;
-      lvlSelects[i].value = NONE;
-    } else used.add(v);
+  const fixed = [];
+
+  for(const v of active){
+    if(!used.has(v)){
+      used.add(v);
+      fixed.push(v);
+    }
   }
 
-  const active = levelsUI.filter(x => x !== NONE);
-  updateChips(active);
-
-  return { levelsActive: active };
+  updateChips(fixed);
+  return fixed;
 }
 
 let ROWS_CACHE=null;
 
 async function main(){
   ROWS_CACHE = await loadRows();
-  const {levelsActive} = getLevelsFromUI();
-  CURRENT_LEVELS_ACTIVE = levelsActive;
+  CURRENT_LEVELS_ACTIVE = getLevelsFromUI();
   const tree = buildTree(ROWS_CACHE, CURRENT_LEVELS_ACTIVE);
   render(tree);
 }
 main();
 
 document.getElementById("renderBtn").onclick = ()=>{
-  const {levelsActive} = getLevelsFromUI();
-  CURRENT_LEVELS_ACTIVE = levelsActive;
+  CURRENT_LEVELS_ACTIVE = getLevelsFromUI();
   const tree = buildTree(ROWS_CACHE, CURRENT_LEVELS_ACTIVE);
   render(tree);
 };
 
-window.addEventListener("resize", ()=>positionColumnLabels());
+window.addEventListener("resize", ()=>{
+  positionColumnLabels();
+});
 </script>
 </body>
 </html>
