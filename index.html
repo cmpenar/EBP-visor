@@ -124,7 +124,7 @@
       stroke-width:2
     }
 
-    /* ✅ Selección azul oscuro + texto blanco */
+    /* Selección y ruta */
     .node.selected rect,
     .node.path rect{
       fill:var(--sel);
@@ -231,11 +231,22 @@
 /* =========================
    Config
 ========================= */
-const DEFAULT_LEVELS = ["Área Prioritaria","Objetivo Estratégico","Impacto Esperado","Operaciones vinculadas","Indicador"];
-const LABELS = [
-  "Área Prioritaria","Objetivo Estratégico","Impacto Esperado","Operaciones vinculadas",
-  "Cooperaciones técnicas vinculadas","Indicador","Año","Fuente"
+const NONE = "(Ninguno)";
+
+// ✅ Default solicitado
+const DEFAULT_LEVELS = ["Área Prioritaria","Objetivo Estratégico","Impacto Esperado", NONE, NONE];
+
+// ✅ Opciones permitidas (sin Año ni Fuente)
+const LABELS_ALLOWED = [
+  "Área Prioritaria",
+  "Objetivo Estratégico",
+  "Impacto Esperado",
+  "Operaciones vinculadas",
+  "Cooperaciones técnicas vinculadas",
+  "Indicador"
 ];
+
+const LEVEL_OPTIONS = [NONE, ...LABELS_ALLOWED];
 
 const lvlSelects = ["lvl1","lvl2","lvl3","lvl4","lvl5"].map(id=>document.getElementById(id));
 const orderChips = document.getElementById("orderChips");
@@ -252,9 +263,17 @@ function fillSelect(select, options, selected){
     select.appendChild(o);
   });
 }
-function updateChips(levels){
+
+function updateChips(levelsActive){
   orderChips.innerHTML="";
-  levels.forEach((l,i)=>{
+  if(levelsActive.length === 0){
+    const d=document.createElement("div");
+    d.className="chip";
+    d.textContent=`(sin niveles activos)`;
+    orderChips.appendChild(d);
+    return;
+  }
+  levelsActive.forEach((l,i)=>{
     const d=document.createElement("div");
     d.className="chip";
     d.textContent=`${i+1}. ${l}`;
@@ -262,8 +281,8 @@ function updateChips(levels){
   });
 }
 
-lvlSelects.forEach((sel,i)=>fillSelect(sel, LABELS, DEFAULT_LEVELS[i] || LABELS[i]));
-updateChips(DEFAULT_LEVELS);
+// Inicializar selects
+lvlSelects.forEach((sel,i)=>fillSelect(sel, LEVEL_OPTIONS, DEFAULT_LEVELS[i] || NONE));
 
 async function loadRows(){
   const res = await fetch("./data.json");
@@ -271,7 +290,10 @@ async function loadRows(){
   return data.rows;
 }
 
-function buildTree(rows, levels){
+/* =========================
+   Tree build (ignora NONE)
+========================= */
+function buildTree(rows, levelsActive){
   const root = {name:"EBP Costa Rica 2024-2027", children:[]};
 
   function getChild(parent, name){
@@ -283,7 +305,15 @@ function buildTree(rows, levels){
 
   rows.forEach(r=>{
     let p=root;
-    levels.forEach(lvl=>{
+
+    // si no hay niveles activos, solo queda la raíz
+    if(levelsActive.length === 0){
+      root._rows = root._rows || [];
+      root._rows.push(r);
+      return;
+    }
+
+    levelsActive.forEach(lvl=>{
       let v = (r[lvl] ?? "").toString().trim();
       if(!v) v="(Sin dato)";
       p=getChild(p, v);
@@ -301,8 +331,11 @@ const svg = d3.select("#viz");
 let g = svg.append("g");
 
 let ROOT_HIER = null;
-let CURRENT_LEVELS = [...DEFAULT_LEVELS];
+let CURRENT_LEVELS_UI = [...DEFAULT_LEVELS];   // incluyendo NONE
+let CURRENT_LEVELS_ACTIVE = [];                // solo activos (sin NONE)
 let NODE_CARD_WIDTH = 260;
+
+let COL_STEP_X = 360;
 
 function setLabelFontByZoom(k){
   const base = 12;
@@ -311,9 +344,9 @@ function setLabelFontByZoom(k){
   document.documentElement.style.setProperty("--labelFont", clamped.toFixed(1) + "px");
 }
 
-function renderColumnLabels(levels){
+function renderColumnLabels(levelsActive){
   colLabelsEl.innerHTML = "";
-  levels.forEach((name, i)=>{
+  levelsActive.forEach((name, i)=>{
     const div = document.createElement("div");
     div.className = "colLabel";
     div.dataset.depth = String(i+1);
@@ -330,7 +363,6 @@ function autoLiftLabels(){
   for(const el of labels){
     maxH = Math.max(maxH, el.getBoundingClientRect().height);
   }
-
   const safeBottom = 14;
   const lift = Math.ceil(maxH + safeBottom);
   colLabelsEl.style.bottom = `${lift}px`;
@@ -350,14 +382,13 @@ function positionColumnLabels(){
   const visibleMinX = margin;
   const visibleMaxX = wrapRect.width - margin;
 
-  // con columnas fijas, el centro depende SOLO del nivel:
-  for(let depth=1; depth<=5; depth++){
+  const activeCount = CURRENT_LEVELS_ACTIVE.length;
+
+  for(let depth=1; depth<=activeCount; depth++){
     const label = colLabelsEl.querySelector(`.colLabel[data-depth="${depth}"]`);
     if(!label) continue;
 
-    // centro de la columna: depth * step + width/2
     const colCenterLayoutX = (depth * COL_STEP_X) + (NODE_CARD_WIDTH / 2);
-
     const screenX = t.applyX(colCenterLayoutX);
     const leftPx = svgOffsetX + screenX;
 
@@ -365,7 +396,6 @@ function positionColumnLabels(){
       label.style.display = "none";
       continue;
     }
-
     label.style.display = "";
     label.style.left = `${leftPx}px`;
   }
@@ -383,7 +413,7 @@ let zoom = d3.zoom()
 svg.call(zoom);
 
 /* =========================
-   Wrap texto (tspans)
+   Wrap texto
 ========================= */
 function wrapText(selection, width){
   selection.each(function(){
@@ -423,15 +453,14 @@ function clearSelection(){
   g.selectAll(".link").classed("path", false);
 }
 
-/* ✅ Enfocar ruta completa (root -> nodo) */
 function zoomToPath(pathNodesArr){
   if(!pathNodesArr || pathNodesArr.length === 0) return;
 
   let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
 
   for(const n of pathNodesArr){
-    const x = n.y;          // layout X horizontal (columna)
-    const y = n.x;          // layout Y vertical
+    const x = n.y;
+    const y = n.x;
     const w = NODE_CARD_WIDTH;
     const h = (n.data._h || 70);
 
@@ -467,12 +496,7 @@ function zoomToPath(pathNodesArr){
 }
 
 /* =========================
-   Columnas fijas por nivel
-========================= */
-let COL_STEP_X = 360; // se recalcula en render()
-
-/* =========================
-   Render
+   Render (columnas fijas)
 ========================= */
 function render(treeData){
   svg.selectAll("*").remove();
@@ -487,23 +511,21 @@ function render(treeData){
   const nodeCardWidth = 260;
   NODE_CARD_WIDTH = nodeCardWidth;
 
-  // ✅ tamaño de columna fijo: ancho del nodo + gap
   const colGap = 110;
   COL_STEP_X = nodeCardWidth + colGap;
 
   const textWrapWidth = nodeCardWidth - 22;
 
-  // Layout vertical con d3.tree (solo calcula x); luego fijamos y por nivel
-  const rowGap = 115; // separación vertical entre nodos
-  const treeLayout = d3.tree().nodeSize([rowGap, 1]); // y no importa aquí
+  // Layout vertical base
+  const rowGap = 115;
+  const treeLayout = d3.tree().nodeSize([rowGap, 1]);
   treeLayout(ROOT_HIER);
 
-  // ✅ Forzar columnas fijas: y = depth * COL_STEP_X
+  // Columnas fijas por nivel (solo niveles activos)
   ROOT_HIER.descendants().forEach(d=>{
     d.y = d.depth * COL_STEP_X;
   });
 
-  // links (con columnas fijas)
   g.selectAll(".link")
     .data(ROOT_HIER.links())
     .join("path")
@@ -513,7 +535,6 @@ function render(treeData){
       .y(d => d.x)
     );
 
-  // nodes
   const nodes = g.selectAll(".node")
     .data(ROOT_HIER.descendants())
     .join("g")
@@ -525,7 +546,6 @@ function render(treeData){
 
       d3.select(event.currentTarget).classed("selected", true);
 
-      // camino raíz -> seleccionado
       let cur = d;
       const pathNodes = [];
       const pathSet = new Set();
@@ -541,7 +561,6 @@ function render(treeData){
 
       zoomToPath(pathNodes);
 
-      // detalle
       const sample = (d.data._rows && d.data._rows[0]) ? d.data._rows[0] : null;
       const lines = [];
       lines.push(`Nodo: ${d.data.name}`);
@@ -573,7 +592,7 @@ function render(treeData){
 
   title.call(wrapText, textWrapWidth);
 
-  // ✅ Centrado vertical perfecto por bbox real
+  // Centrado vertical perfecto por bbox real
   nodes.each(function(d){
     const node = d3.select(this);
 
@@ -596,7 +615,7 @@ function render(treeData){
       .attr("transform", `translate(0, ${centerShiftY})`);
   });
 
-  renderColumnLabels(CURRENT_LEVELS);
+  renderColumnLabels(CURRENT_LEVELS_ACTIVE);
 
   // Fit inicial
   fitToView();
@@ -620,38 +639,54 @@ function render(treeData){
 }
 
 /* =========================
-   UI
+   UI: obtener niveles
 ========================= */
 function getLevelsFromUI(){
-  const levels = lvlSelects.map(s=>s.value);
-  const used=new Set();
+  // niveles tal cual UI
+  const levelsUI = lvlSelects.map(s=>s.value);
 
-  for(let i=0;i<levels.length;i++){
-    if(used.has(levels[i])){
-      const repl = LABELS.find(x=>!used.has(x));
-      levels[i]=repl;
-      lvlSelects[i].value=repl;
+  // activos (sin NONE) manteniendo orden
+  const active = levelsUI.filter(x => x !== NONE);
+
+  // evitar duplicados en activos (si se repite, se reemplaza por NONE)
+  const used = new Set();
+  for(let i=0;i<levelsUI.length;i++){
+    const v = levelsUI[i];
+    if(v === NONE) continue;
+    if(used.has(v)){
+      levelsUI[i] = NONE;
+      lvlSelects[i].value = NONE;
+    } else {
+      used.add(v);
     }
-    used.add(levels[i]);
   }
 
-  updateChips(levels);
-  return levels;
+  const active2 = levelsUI.filter(x => x !== NONE);
+  updateChips(active2);
+
+  return { levelsUI, levelsActive: active2 };
 }
 
 let ROWS_CACHE=null;
 
 async function main(){
   ROWS_CACHE = await loadRows();
-  CURRENT_LEVELS = getLevelsFromUI();
-  const tree = buildTree(ROWS_CACHE, CURRENT_LEVELS);
+
+  const {levelsUI, levelsActive} = getLevelsFromUI();
+  CURRENT_LEVELS_UI = levelsUI;
+  CURRENT_LEVELS_ACTIVE = levelsActive;
+
+  const tree = buildTree(ROWS_CACHE, CURRENT_LEVELS_ACTIVE);
   render(tree);
 }
 main();
 
 document.getElementById("renderBtn").onclick = ()=>{
-  CURRENT_LEVELS = getLevelsFromUI();
-  const tree = buildTree(ROWS_CACHE, CURRENT_LEVELS);
+  const {levelsUI, levelsActive} = getLevelsFromUI();
+  CURRENT_LEVELS_UI = levelsUI;
+  CURRENT_LEVELS_ACTIVE = levelsActive;
+
+  const tree = buildTree(ROWS_CACHE, CURRENT_LEVELS_ACTIVE);
   render(tree);
 };
 
