@@ -33,7 +33,7 @@
       color:var(--ink);
     }
 
-    /* Header compacto */
+    /* Header */
     header{
       padding:14px 16px;
       background:linear-gradient(180deg,#0b6a7d 0%, #0b3a68 100%);
@@ -51,8 +51,8 @@
     .logo{
       width:84px;
       height:84px;
-      border:none;
       background:transparent;
+      border:none;
       overflow:hidden;
       flex:0 0 auto;
       display:flex;
@@ -76,14 +76,17 @@
       padding:12px;
       height:calc(100vh - 112px);
       box-sizing:border-box;
+      min-height:0;
     }
 
+    /* Panel izquierdo */
     .panel{
       background:var(--card);
       border:1px solid #e2e8f0;
       border-radius:14px;
       box-shadow:0 1px 4px rgba(15,23,42,.06);
       overflow:auto;
+      min-height:0;
     }
     .panel .inner{padding:12px;}
 
@@ -137,16 +140,32 @@
     }
     .btnSecondary{ background:#0b2e4a; }
 
-    /* ✅ Columna derecha ahora es 2 columnas: (Ejes | Árbol) */
-    #right{
-      display:grid;
-      grid-template-columns: 280px 1fr; /* ✅ ejes más angosto */
-      gap:12px;
-      height:100%;
+    /* ✅ Columna derecha: (Ejes | Árbol) dentro de un "marco" */
+    #rightFrame{
+      background:var(--card);
+      border:1px solid #e2e8f0;
+      border-radius:14px;
+      box-shadow:0 1px 4px rgba(15,23,42,.06);
+      overflow:hidden;
       min-width:0;
+      min-height:0;
+      display:flex;
     }
 
-    /* ✅ Ejes transversales: NO encima del SVG; vive en su columna */
+    /* ✅ Hacemos "Niveles" con el MISMO ancho que "Ejes" */
+    #right{
+      display:grid;
+      grid-template-columns: 300px 1fr; /* ✅ ancho único para ejes */
+      gap:12px;
+      height:100%;
+      width:100%;
+      padding:12px;
+      box-sizing:border-box;
+      min-width:0;
+      min-height:0;
+    }
+
+    /* ✅ Caja de ejes (misma estética que filtros) */
     .axesBox{
       height:100%;
       background:var(--soft);
@@ -154,7 +173,10 @@
       border-radius:12px;
       padding:12px;
       box-shadow:0 1px 4px rgba(15,23,42,.06);
-      overflow:auto;
+      overflow:hidden; /* ✅ que no se coma al mapa */
+      display:flex;
+      flex-direction:column;
+      min-height:0;
     }
     .axesTitle{
       margin:0 0 10px 0;
@@ -162,27 +184,29 @@
       font-weight:950;
       color:#0f172a;
     }
+
+    /* ✅ distribuir 3 ejes en altura disponible, iguales */
     .axesChips{
       display:flex;
-      gap:10px;
       flex-direction:column;
+      gap:10px;
+      flex:1;
+      min-height:0;
     }
     .axesChip{
-      display:block;
+      flex:1;                 /* ✅ los 3 iguales */
+      display:flex;
+      align-items:center;     /* ✅ centrado vertical */
+      justify-content:center; /* ✅ centrado horizontal */
       padding:10px 12px;
-      border-radius:999px;
+      border-radius:16px;
       background:#eef2ff;
       border:1px solid #e0e7ff;
       color:#3730a3;
-
-      /* ✅ sin negrita */
-      font-weight:500;
-
+      font-weight:500;        /* ✅ sin negrita */
       font-size:14px;
-      line-height:1.15;
+      line-height:1.2;
       text-align:center;
-
-      /* ✅ permitir varias líneas y que sea angosto */
       white-space:normal;
       word-break:break-word;
       overflow-wrap:anywhere;
@@ -190,14 +214,14 @@
     }
 
     /* SVG */
-    #svgWrap{ position:relative; overflow:hidden; height:100%; min-width:0; }
+    #svgWrap{ position:relative; overflow:hidden; height:100%; min-width:0; min-height:0; }
     svg{
       width:100%;
       height:100%;
       display:block;
       background:var(--card);
       border:1px solid #e2e8f0;
-      border-radius:14px;
+      border-radius:12px; /* ✅ adentro del marco */
       box-shadow:0 1px 4px rgba(15,23,42,.06);
     }
 
@@ -257,10 +281,10 @@
     .colLabel span{ white-space:normal; line-height:1.15; max-width:340px; }
 
     @media(max-width:1100px){
-      /* en pantallas más chicas: ejes arriba del svg (pero igual NO encima) */
       #right{ grid-template-columns: 1fr; }
-      .axesBox{ height:auto; max-height:220px; }
+      .axesBox{ height:auto; }
       #svgWrap{ height:70vh; }
+      #rightFrame{ display:block; }
     }
     @media(max-width:980px){
       .wrap{grid-template-columns:1fr; height:auto}
@@ -285,6 +309,7 @@
 </header>
 
 <div class="wrap">
+  <!-- ✅ IZQUIERDA: Niveles + Filtros -->
   <div class="panel">
     <div class="inner">
       <div style="font-size:12px;color:#64748b;line-height:1.35">
@@ -320,20 +345,22 @@
     </div>
   </div>
 
-  <!-- ✅ Columna derecha: Ejes (rojo) | Árbol (amarillo) -->
-  <div id="right">
-    <div class="axesBox" id="axesBox">
-      <div class="axesTitle">Ejes transversales</div>
-      <div class="axesChips">
-        <div class="axesChip">Género y diversidad</div>
-        <div class="axesChip">Cambio climático y Descarbonización</div>
-        <div class="axesChip">Fortalecimiento Institucional</div>
+  <!-- ✅ DERECHA: Marco agrupado (Ejes + Árbol) -->
+  <div id="rightFrame">
+    <div id="right">
+      <div class="axesBox" id="axesBox">
+        <div class="axesTitle">Ejes transversales</div>
+        <div class="axesChips">
+          <div class="axesChip">Género y diversidad</div>
+          <div class="axesChip">Cambio climático y Descarbonización</div>
+          <div class="axesChip">Fortalecimiento Institucional</div>
+        </div>
       </div>
-    </div>
 
-    <div id="svgWrap">
-      <div class="colLabels" id="colLabels"></div>
-      <svg id="viz"></svg>
+      <div id="svgWrap">
+        <div class="colLabels" id="colLabels"></div>
+        <svg id="viz"></svg>
+      </div>
     </div>
   </div>
 </div>
@@ -884,5 +911,6 @@ window.addEventListener("resize", ()=>{
 </script>
 </body>
 </html>
+
 
 
