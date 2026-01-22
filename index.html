@@ -17,7 +17,6 @@
       --labelFont: 14px;
       --sel:#0b2e4a;
 
-      /* tipografía nodos */
       --nodeFont: 34px;
       --nodeFontMin: 34px;
       --nodeFontMax: 52px;
@@ -99,11 +98,6 @@
     button:hover{filter:brightness(.95)}
 
     .small{font-size:12px;color:var(--muted);line-height:1.35}
-    .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-    .chip{
-      font-size:11px;padding:4px 8px;border-radius:999px;
-      background:#eef2ff;border:1px solid #e0e7ff;color:#3730a3
-    }
 
     .hint{
       margin-top:10px;
@@ -117,6 +111,7 @@
     .hint b{display:block;margin-bottom:6px}
 
     .filtersRow{display:grid;grid-template-columns:1fr;gap:10px;margin-top:6px}
+
     .hintBtn{
       padding:10px 12px;
       border-radius:10px;
@@ -128,6 +123,20 @@
       width:100%;
     }
     .hintBtn:hover{filter:brightness(.95)}
+
+    /* ✅ botón reset */
+    .resetBtn{
+      padding:10px 12px;
+      border-radius:10px;
+      border:1px solid rgba(11,46,74,.25);
+      background:#ffffff;
+      color:#0b2e4a;
+      font-weight:900;
+      cursor:pointer;
+      width:100%;
+    }
+    .resetBtn:hover{filter:brightness(.98)}
+    .resetBtn:active{transform:translateY(1px)}
 
     #svgWrap{position:relative; overflow:hidden;}
     svg{
@@ -214,31 +223,33 @@
       <div style="height:10px"></div>
       <button id="renderBtn">Renderizar</button>
 
-      <div class="chips" id="orderChips"></div>
+      <!-- ✅ QUITADO: chips de orden (lo que marcaste en rojo) -->
 
-      <!-- ✅ Caja tipo "Gestos" pero para FILTROS -->
+      <!-- ✅ Caja de filtros (tipo gestos) + botón reset -->
       <div class="hint" style="margin-top:12px">
         <b>Filtros</b>
+
         <div class="filtersRow">
           <div>
             <label style="margin:0 0 6px">Operación vinculada</label>
             <select id="fOperacion"></select>
           </div>
+
           <div>
             <label style="margin:0 0 6px">Área Prioritaria</label>
             <select id="fArea"></select>
           </div>
+
           <div>
             <label style="margin:0 0 6px">Objetivo Estratégico</label>
             <select id="fObjetivo"></select>
           </div>
+
           <button class="hintBtn" id="applyFiltersBtn">Aplicar filtros y renderizar</button>
+          <button class="resetBtn" id="resetBtn">Reestablecer</button>
         </div>
 
-        <div style="margin-top:10px">
-          <span style="font-weight:700">Gestos:</span>
-          arrastra para mover • rueda/trackpad para zoom • click en un nodo para resaltar ruta.
-        </div>
+        <!-- ✅ QUITADO: texto de “Gestos...” (lo que marcaste en rojo) -->
       </div>
     </div>
   </div>
@@ -268,9 +279,6 @@ const LABELS_ALLOWED = [
 const LEVEL_OPTIONS = [NONE, ...LABELS_ALLOWED];
 
 const lvlSelects = ["lvl1","lvl2","lvl3","lvl4","lvl5"].map(id=>document.getElementById(id));
-const orderChips = document.getElementById("orderChips");
-const colLabelsEl = document.getElementById("colLabels");
-const svgWrapEl = document.getElementById("svgWrap");
 
 function fillSelect(select, options, selected){
   select.innerHTML = "";
@@ -283,23 +291,6 @@ function fillSelect(select, options, selected){
 }
 lvlSelects.forEach((sel,i)=>fillSelect(sel, LEVEL_OPTIONS, DEFAULT_LEVELS[i] || NONE));
 
-function updateChips(levelsActive){
-  orderChips.innerHTML="";
-  if(levelsActive.length === 0){
-    const d=document.createElement("div");
-    d.className="chip";
-    d.textContent=`(sin niveles activos)`;
-    orderChips.appendChild(d);
-    return;
-  }
-  levelsActive.forEach((l,i)=>{
-    const d=document.createElement("div");
-    d.className="chip";
-    d.textContent=`${i+1}. ${l}`;
-    orderChips.appendChild(d);
-  });
-}
-
 function getLevelsFromUI(){
   const raw = lvlSelects.map(s=>s.value);
   const active = raw.filter(v => v !== NONE);
@@ -310,7 +301,6 @@ function getLevelsFromUI(){
   for(const v of active){
     if(!used.has(v)){ used.add(v); fixed.push(v); }
   }
-  updateChips(fixed);
   return fixed;
 }
 
@@ -321,13 +311,13 @@ const fOperacion = document.getElementById("fOperacion");
 const fArea = document.getElementById("fArea");
 const fObjetivo = document.getElementById("fObjetivo");
 const applyFiltersBtn = document.getElementById("applyFiltersBtn");
+const resetBtn = document.getElementById("resetBtn");
 
 const FILTER_ANY = "(Todos)";
 
 function uniqSorted(arr){
   return Array.from(new Set(arr.filter(Boolean))).sort((a,b)=>a.localeCompare(b,"es"));
 }
-
 function fillFilterSelect(sel, values){
   const opts = [FILTER_ANY, ...values];
   sel.innerHTML = "";
@@ -339,12 +329,10 @@ function fillFilterSelect(sel, values){
   });
   sel.value = FILTER_ANY;
 }
-
 function normalizeVal(v){
   const s = (v ?? "").toString().trim();
   return s ? s : "(Sin dato)";
 }
-
 function applyRowFilters(rows){
   const op = fOperacion.value;
   const ar = fArea.value;
@@ -363,14 +351,13 @@ function applyRowFilters(rows){
 }
 
 /* =========================
-   DATA
+   DATA + TREE
 ========================= */
 async function loadRows(){
   const res = await fetch("./data.json");
   const data = await res.json();
   return data.rows;
 }
-
 function buildTree(rows, levelsActive){
   const root = {name:"EBP Costa Rica 2024-2027", children:[]};
 
@@ -404,6 +391,9 @@ function buildTree(rows, levelsActive){
 /* =========================
    D3 RENDER (NODOS AUTO-ANCHO)
 ========================= */
+const svgWrapEl = document.getElementById("svgWrap");
+const colLabelsEl = document.getElementById("colLabels");
+
 const svg = d3.select("#viz");
 let g = svg.append("g");
 
@@ -474,7 +464,7 @@ function positionColumnLabels(){
     if(!label) continue;
 
     const colX = COL_OFFSETS[depth] ?? (depth * 800);
-    const colCenterLayoutX = colX + (COL_WIDTHS[depth] || 600) / 2;
+    const colCenterLayoutX = colX + (COL_WIDTHS[depth] || MIN_W) / 2;
 
     const screenX = t.applyX(colCenterLayoutX);
     const leftPx = svgOffsetX + screenX;
@@ -550,6 +540,7 @@ function clearSelection(){
   g.selectAll(".node").classed("selected", false).classed("path", false);
   g.selectAll(".link").classed("path", false);
 }
+
 function applyColumnAlignment(selectedNode){
   if(!selectedNode) return;
 
@@ -589,6 +580,7 @@ function applyColumnAlignment(selectedNode){
     .transition().duration(520)
     .attr("d", linkPath);
 }
+
 function resetToBaseLayout(){
   if(!ROOT_HIER) return;
 
@@ -606,6 +598,7 @@ function resetToBaseLayout(){
     .transition().duration(380)
     .attr("d", linkPathBase);
 }
+
 function zoomToPath(pathNodesArr){
   if(!pathNodesArr || pathNodesArr.length === 0) return;
 
@@ -655,10 +648,8 @@ function render(treeData){
 
   ROOT_HIER = d3.hierarchy(treeData);
 
-  // Layout base para vertical
   d3.tree().nodeSize([ROW_GAP, 1])(ROOT_HIER);
 
-  // Crear nodos
   const nodesG = g.selectAll(".node")
     .data(ROOT_HIER.descendants())
     .join("g")
@@ -676,12 +667,10 @@ function render(treeData){
     .attr("y", 0)
     .text(d=>d.data.name);
 
-  // Medir y ajustar tamaños (preferimos horizontal)
   nodesG.each(function(d){
     const node = d3.select(this);
     const textEl = node.select("text.title");
 
-    // Medir una línea
     const bbox1 = textEl.node().getBBox();
     let desiredW = Math.ceil(bbox1.width + PAD_X*2);
     desiredW = Math.max(MIN_W, Math.min(MAX_W, desiredW));
@@ -708,20 +697,17 @@ function render(treeData){
     textEl.attr("transform", `translate(0, ${centerShiftY})`);
   });
 
-  // Ancho máximo por columna
   const maxDepth = d3.max(ROOT_HIER.descendants(), d=>d.depth) || 0;
   COL_WIDTHS = new Array(maxDepth+1).fill(MIN_W);
   ROOT_HIER.descendants().forEach(d=>{
     COL_WIDTHS[d.depth] = Math.max(COL_WIDTHS[d.depth], d._w || MIN_W);
   });
 
-  // offsets acumulados por depth
   COL_OFFSETS = new Array(maxDepth+1).fill(0);
   for(let depth=1; depth<=maxDepth; depth++){
     COL_OFFSETS[depth] = COL_OFFSETS[depth-1] + COL_WIDTHS[depth-1] + COL_GAP;
   }
 
-  // asignar y por columna (fija), normalizar ancho al de la columna
   ROOT_HIER.descendants().forEach(d=>{
     d.y = COL_OFFSETS[d.depth];
     d._x = d.x;
@@ -730,17 +716,14 @@ function render(treeData){
   });
 
   nodesG.select("rect").attr("width", d=>COL_WIDTHS[d.depth]);
-  nodesG.select("text.title").attr("x", PAD_X);
   nodesG.attr("transform", d => `translate(${d.y},${d.x})`);
 
-  // Links
   g.selectAll(".link")
     .data(ROOT_HIER.links())
     .join("path")
     .attr("class","link")
     .attr("d", linkPathBase);
 
-  // Click en nodo resalta ruta
   nodesG.on("click", (event,d)=>{
     event.stopPropagation();
 
@@ -771,7 +754,6 @@ function render(treeData){
 
   renderColumnLabels(CURRENT_LEVELS_ACTIVE);
 
-  // Fit inicial
   fitToView();
   function fitToView(){
     const bounds = g.node().getBBox();
@@ -819,19 +801,16 @@ function buildFiltersFromRows(rows){
 }
 
 function renderWithCurrentUI(){
-  const levelsActive = getLevelsFromUI();
-  CURRENT_LEVELS_ACTIVE = levelsActive;
+  CURRENT_LEVELS_ACTIVE = getLevelsFromUI();
 
   const filteredRows = applyRowFilters(ROWS_CACHE);
-  const tree = buildTree(filteredRows, levelsActive);
+  const tree = buildTree(filteredRows, CURRENT_LEVELS_ACTIVE);
   render(tree);
 }
 
 async function main(){
   ROWS_CACHE = await loadRows();
   buildFiltersFromRows(ROWS_CACHE);
-
-  // Render inicial
   renderWithCurrentUI();
 }
 main();
@@ -839,8 +818,24 @@ main();
 document.getElementById("renderBtn").onclick = ()=>{
   renderWithCurrentUI();
 };
-
 applyFiltersBtn.onclick = ()=>{
+  renderWithCurrentUI();
+};
+
+/* ✅ REESTABLECER:
+   - filtros a (Todos)
+   - niveles a defaults
+   - limpiar selección/zoom al re-render
+*/
+resetBtn.onclick = ()=>{
+  // reset niveles
+  lvlSelects.forEach((sel,i)=>fillSelect(sel, LEVEL_OPTIONS, DEFAULT_LEVELS[i] || NONE));
+
+  // reset filtros
+  fOperacion.value = FILTER_ANY;
+  fArea.value = FILTER_ANY;
+  fObjetivo.value = FILTER_ANY;
+
   renderWithCurrentUI();
 };
 
