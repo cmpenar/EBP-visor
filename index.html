@@ -194,16 +194,16 @@
       min-height:0;
     }
     .axesChip{
-      flex:1;                 /* ✅ los 3 iguales */
+      flex:1;
       display:flex;
-      align-items:center;     /* ✅ centrado vertical */
-      justify-content:center; /* ✅ centrado horizontal */
+      align-items:center;
+      justify-content:center;
       padding:10px 12px;
       border-radius:16px;
       background:#eef2ff;
       border:1px solid #e0e7ff;
       color:#3730a3;
-      font-weight:500;        /* ✅ sin negrita */
+      font-weight:500;
       font-size:14px;
       line-height:1.2;
       text-align:center;
@@ -221,7 +221,7 @@
       display:block;
       background:var(--card);
       border:1px solid #e2e8f0;
-      border-radius:12px; /* ✅ adentro del marco */
+      border-radius:12px;
       box-shadow:0 1px 4px rgba(15,23,42,.06);
     }
 
@@ -506,32 +506,32 @@ let g = svg.append("g");
 let ROOT_HIER = null;
 let CURRENT_LEVELS_ACTIVE = [];
 
-/* ✅ ANCHOS POR COLUMNA (Objetivo Estratégico + Impacto Esperado más anchos) */
+/* =========================================================
+   ✅ ANCHOS POR COLUMNA (Objetivo Estratégico + Impacto Esperado)
+   ========================================================= */
 const BASE_NODE_WIDTH = 560;   // ancho normal
-const WIDE_NODE_WIDTH = 820;   // ancho para Objetivo e Impacto (ajusta si quieres)
+const OBJ_NODE_WIDTH  = 860;   // ✅ Objetivo Estratégico (ajusta)
+const IMP_NODE_WIDTH  = 860;   // ✅ Impacto Esperado (ajusta)
 const COL_GAP = 240;           // separación entre columnas
 
-let COL_X = [];                // x acumulado por depth
+let COL_X = [];                // x acumulado por depth (columna)
 let WIDTH_BY_DEPTH = [];       // ancho por depth
 
-let BASE_POS = new Map();
-
-function getWideDepths(){
-  // root=0, Nivel1=1, Nivel2=2...
-  const wideNames = new Set(["Objetivo Estratégico","Impacto Esperado"]);
-  const depths = new Set();
-  CURRENT_LEVELS_ACTIVE.forEach((name, idx)=>{
-    if(wideNames.has(name)) depths.add(idx + 1);
-  });
-  return depths;
+function getDepthOfLevelName(levelName){
+  // root=0, Nivel1=1, Nivel2=2, etc.
+  const idx = CURRENT_LEVELS_ACTIVE.indexOf(levelName);
+  return idx === -1 ? -1 : (idx + 1);
 }
 
 function buildColumnMetrics(maxDepth){
-  const wideDepths = getWideDepths();
+  const objDepth = getDepthOfLevelName("Objetivo Estratégico");
+  const impDepth = getDepthOfLevelName("Impacto Esperado");
 
   WIDTH_BY_DEPTH = Array.from({length: maxDepth + 1}, (_, d) => {
     if(d === 0) return BASE_NODE_WIDTH; // root
-    return wideDepths.has(d) ? WIDE_NODE_WIDTH : BASE_NODE_WIDTH;
+    if(d === objDepth) return OBJ_NODE_WIDTH;
+    if(d === impDepth) return IMP_NODE_WIDTH;
+    return BASE_NODE_WIDTH;
   });
 
   COL_X = Array.from({length: maxDepth + 1}, () => 0);
@@ -544,6 +544,9 @@ function nodeWidth(d){
   const depth = (typeof d === "number") ? d : d.depth;
   return WIDTH_BY_DEPTH[depth] ?? BASE_NODE_WIDTH;
 }
+/* ========================================================= */
+
+let BASE_POS = new Map();
 
 function setNodeFontByZoom(k){
   const base = 30;
@@ -580,6 +583,7 @@ function autoLiftLabels(){
   }
   colLabelsEl.style.bottom = `${Math.ceil(maxH + 10)}px`;
 }
+
 function positionColumnLabels(){
   if(!ROOT_HIER) return;
 
@@ -601,8 +605,9 @@ function positionColumnLabels(){
     const label = colLabelsEl.querySelector(`.colLabel[data-depth="${depth}"]`);
     if(!label) continue;
 
-    // ✅ centro de la columna real: COL_X[depth] + (ancho/2)
+    // ✅ centro real de la columna, según ancho por depth
     const colCenterLayoutX = COL_X[depth] + (nodeWidth(depth) / 2);
+
     const screenX = t.applyX(colCenterLayoutX);
     const leftPx = svgOffsetX + screenX;
 
@@ -724,9 +729,9 @@ function zoomToPath(pathNodesArr){
   let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
 
   for(const n of pathNodesArr){
-    const x = n._y ?? n.y;
-    const y = n._x ?? n.x;
-    const w = nodeWidth(n);                 // ✅ ancho real por nodo/columna
+    const x = n._y ?? n.y;        // horizontal layout (columna)
+    const y = n._x ?? n.x;        // vertical layout
+    const w = nodeWidth(n);       // ✅ ancho real por nodo/columna
     const h = (n.data._h || 160);
 
     minX = Math.min(minX, x);
@@ -797,16 +802,17 @@ function render(treeData){
 
   ROOT_HIER = d3.hierarchy(treeData);
 
-  const colGap = 240;
-  COL_STEP_X = NODE_CARD_WIDTH + colGap;
-  const textWrapWidth = NODE_CARD_WIDTH - 36;
-
   const rowGap = 190;
   const treeLayout = d3.tree().nodeSize([rowGap, 1]);
   treeLayout(ROOT_HIER);
 
+  // ✅ construir métricas de columnas (anchos y x acumulado)
+  const maxDepth = d3.max(ROOT_HIER.descendants(), d => d.depth) || 0;
+  buildColumnMetrics(maxDepth);
+
+  // ✅ ubicar cada nodo en su columna real
   ROOT_HIER.descendants().forEach(d=>{
-    d.y = d.depth * COL_STEP_X;
+    d.y = COL_X[d.depth];
   });
 
   BASE_POS = new Map();
@@ -854,10 +860,11 @@ function render(treeData){
     resetToBaseLayout();
   });
 
+  // ✅ rect con ancho variable según columna
   nodes.append("rect")
     .attr("x", 0)
     .attr("y", -60)
-    .attr("width", NODE_CARD_WIDTH)
+    .attr("width", d => nodeWidth(d))
     .attr("height", 120);
 
   const title = nodes.append("text")
@@ -866,7 +873,11 @@ function render(treeData){
     .attr("y", 0)
     .text(d=>d.data.name);
 
-  title.call(wrapText, textWrapWidth);
+  // ✅ wrap por nodo según su ancho real
+  title.each(function(d){
+    const w = nodeWidth(d) - 36;
+    wrapText(d3.select(this), w);
+  });
 
   nodes.each(function(d){
     const node = d3.select(this);
@@ -876,6 +887,9 @@ function render(treeData){
     const padY = 38;
     const h = bbox.height + padY * 2;
     d.data._h = h;
+
+    // (opcional) guardar ancho real por si lo necesitas luego
+    d.data._w = nodeWidth(d);
 
     node.select("rect")
       .attr("y", -(h/2))
@@ -947,6 +961,3 @@ window.addEventListener("resize", ()=>{
 </script>
 </body>
 </html>
-
-
-
