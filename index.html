@@ -14,10 +14,9 @@
       --line:#cbd5e1;
       --accent:#1d4ed8;
 
-      --labelFont: 12px;
-      --sel:#0b2e4a; /* azul oscuro como header */
-
-      --nodeFont: 14px; /* ✅ tamaño solicitado */
+      --labelFont: 13px;        /* etiquetas inferiores */
+      --sel:#0b2e4a;            /* azul oscuro selección */
+      --nodeFont: 18px;         /* ✅ tamaño base nodo (más grande) */
     }
 
     html, body { height: 100%; overflow: hidden; }
@@ -113,7 +112,7 @@
     .node .title{
       font-size:var(--nodeFont);
       fill:#0f172a;
-      font-weight:650;
+      font-weight:700;
     }
     .link{
       fill:none;
@@ -163,13 +162,13 @@
       display:flex;
       align-items:center;
       gap:8px;
-      padding:8px 10px;
+      padding:9px 12px;
       border-radius:12px;
       background:#0f172a;
       color:#fff;
       font-size:var(--labelFont);
-      font-weight:800;
-      opacity:.92;
+      font-weight:900;
+      opacity:.93;
       box-shadow:0 6px 16px rgba(15,23,42,.18);
       max-width:360px;
       white-space:normal;
@@ -236,7 +235,7 @@
 const NONE = "(Ninguno)";
 const DEFAULT_LEVELS = ["Área Prioritaria","Objetivo Estratégico","Impacto Esperado", NONE, NONE];
 
-// opciones (sin Año ni Fuente)
+// opciones (sin Año/Fuente)
 const LABELS_ALLOWED = [
   "Área Prioritaria",
   "Objetivo Estratégico",
@@ -325,17 +324,24 @@ let g = svg.append("g");
 
 let ROOT_HIER = null;
 let CURRENT_LEVELS_ACTIVE = [];
-let NODE_CARD_WIDTH = 280;
+let NODE_CARD_WIDTH = 340;      /* ✅ más ancho para texto */
+let COL_STEP_X = 480;           /* ✅ más separación columnas */
 
-let COL_STEP_X = 380;
-
-// base (para reset)
+// base para reset
 let BASE_POS = new Map();  // node -> {x,y}
 
+/* ✅ Hacer que el texto escale con zoom (y tenga mínimo legible) */
+function setNodeFontByZoom(k){
+  const base = 18;             // igual que --nodeFont inicial
+  const scaled = base * k;     // crece con zoom
+  const clamped = Math.max(14, Math.min(28, scaled));
+  document.documentElement.style.setProperty("--nodeFont", clamped.toFixed(1) + "px");
+}
+
 function setLabelFontByZoom(k){
-  const base = 12;
+  const base = 13;
   const scaled = base * k;
-  const clamped = Math.max(9, Math.min(22, scaled));
+  const clamped = Math.max(10, Math.min(22, scaled));
   document.documentElement.style.setProperty("--labelFont", clamped.toFixed(1) + "px");
 }
 
@@ -367,7 +373,9 @@ function positionColumnLabels(){
   if(!ROOT_HIER) return;
 
   const t = d3.zoomTransform(svg.node());
+
   setLabelFontByZoom(t.k);
+  setNodeFontByZoom(t.k);  /* ✅ escala texto nodos */
 
   const svgRect  = svg.node().getBoundingClientRect();
   const wrapRect = svgWrapEl.getBoundingClientRect();
@@ -448,16 +456,14 @@ function clearSelection(){
 }
 
 /* =========================
-   Re-distribución SIN reordenar:
-   - Mueve cada columna entera con un offset
+   Alinear columnas SIN perder orden
 ========================= */
 function applyColumnAlignment(selectedNode){
   if(!selectedNode) return;
 
-  // camino root->selected
   let cur = selectedNode;
   const path = [];
-  const byDepth = new Map(); // depth -> node en el camino
+  const byDepth = new Map();
   while(cur){
     path.push(cur);
     byDepth.set(cur.depth, cur);
@@ -465,11 +471,9 @@ function applyColumnAlignment(selectedNode){
   }
   path.reverse();
 
-  // baseline = altura del nodo seleccionado en base
   const baseSel = BASE_POS.get(selectedNode);
   const baseline = baseSel ? baseSel.x : selectedNode.x;
 
-  // offset por depth
   const depthOffsets = new Map();
   ROOT_HIER.descendants().forEach(n=>{
     if(!depthOffsets.has(n.depth)) depthOffsets.set(n.depth, 0);
@@ -481,7 +485,6 @@ function applyColumnAlignment(selectedNode){
     depthOffsets.set(depth, baseline - b.x);
   }
 
-  // aplicar nuevas posiciones
   ROOT_HIER.descendants().forEach(n=>{
     const b = BASE_POS.get(n);
     const off = depthOffsets.get(n.depth) || 0;
@@ -520,7 +523,7 @@ function resetToBaseLayout(){
 }
 
 /* =========================
-   Zoom a la ruta (encuadre)
+   Zoom a ruta
 ========================= */
 function zoomToPath(pathNodesArr){
   if(!pathNodesArr || pathNodesArr.length === 0) return;
@@ -545,7 +548,7 @@ function zoomToPath(pathNodesArr){
   const svgW = svg.node().clientWidth;
   const svgH = svg.node().clientHeight;
 
-  const pad = 110;
+  const pad = 140;
   const scale = Math.min(2.6, Math.max(0.35,
     0.92 / Math.max(boundsW / (svgW - pad), boundsH / (svgH - pad))
   ));
@@ -565,7 +568,7 @@ function zoomToPath(pathNodesArr){
 }
 
 /* =========================
-   Render (columnas fijas)
+   Render
 ========================= */
 function render(treeData){
   svg.selectAll("*").remove();
@@ -577,25 +580,20 @@ function render(treeData){
 
   ROOT_HIER = d3.hierarchy(treeData);
 
-  const nodeCardWidth = 280;
-  NODE_CARD_WIDTH = nodeCardWidth;
-
-  const colGap = 120;
+  const nodeCardWidth = NODE_CARD_WIDTH;
+  const colGap = 140;
   COL_STEP_X = nodeCardWidth + colGap;
 
-  const textWrapWidth = nodeCardWidth - 22;
+  const textWrapWidth = nodeCardWidth - 24;
 
-  // layout vertical base
-  const rowGap = 140;
+  const rowGap = 150;
   const treeLayout = d3.tree().nodeSize([rowGap, 1]);
   treeLayout(ROOT_HIER);
 
-  // columnas fijas
   ROOT_HIER.descendants().forEach(d=>{
     d.y = d.depth * COL_STEP_X;
   });
 
-  // guardar base
   BASE_POS = new Map();
   ROOT_HIER.descendants().forEach(n=>{
     BASE_POS.set(n, {x:n.x, y:n.y});
@@ -619,7 +617,6 @@ function render(treeData){
       clearSelection();
       d3.select(event.currentTarget).classed("selected", true);
 
-      // camino
       let cur = d;
       const pathNodes = [];
       const pathSet = new Set();
@@ -636,7 +633,6 @@ function render(treeData){
       applyColumnAlignment(d);
       zoomToPath(pathNodes);
 
-      // detalle
       const sample = (d.data._rows && d.data._rows[0]) ? d.data._rows[0] : null;
       const lines = [];
       lines.push(`Nodo: ${d.data.name}`);
@@ -652,20 +648,17 @@ function render(treeData){
       detail.textContent = lines.join("\n");
     });
 
-  // click fondo: reset
   svg.on("click", ()=>{
     clearSelection();
     resetToBaseLayout();
   });
 
-  // rect
   nodes.append("rect")
     .attr("x", 0)
     .attr("y", -28)
     .attr("width", nodeCardWidth)
     .attr("height", 56);
 
-  // title
   const title = nodes.append("text")
     .attr("class","title")
     .attr("x", 12)
@@ -680,7 +673,7 @@ function render(treeData){
     const textEl = node.select("text.title").node();
     const bbox = textEl.getBBox();
 
-    const padY = 18;
+    const padY = 22;
     const h = bbox.height + padY * 2;
     d.data._h = h;
 
@@ -695,7 +688,6 @@ function render(treeData){
 
   renderColumnLabels(CURRENT_LEVELS_ACTIVE);
 
-  // fit inicial
   fitToView();
   function fitToView(){
     const bounds = g.node().getBBox();
