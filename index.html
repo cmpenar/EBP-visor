@@ -29,8 +29,8 @@
       --treeBgOpacity: 0.2; /* ajusta 0.10–0.20 */
 
       /* ✅ Colores del círculo */
-      --dotYes:#16a34a;   /* verde */
-      --dotNo:#7c3aed;    /* morado */
+      --dotYes:#16a34a;     /* verde */
+      --dotNo:#7c3aed;      /* morado */
       --dotUnknown:#94a3b8; /* gris */
     }
 
@@ -164,7 +164,7 @@
     /* ✅ Hacemos "Niveles" con el MISMO ancho que "Ejes" */
     #right{
       display:grid;
-      grid-template-columns: 160px 1fr; /* ✅ más angosto como la línea naranjada */
+      grid-template-columns: 160px 1fr;
       gap:12px;
       height:100%;
       width:100%;
@@ -174,7 +174,7 @@
       min-height:0;
     }
 
-    /* ✅ Caja de ejes (misma estética que filtros) */
+    /* ✅ Caja de ejes */
     .axesBox{
       height:100%;
       background:var(--soft);
@@ -195,7 +195,6 @@
       text-align:center;
     }
 
-    /* ✅ distribuir 3 ejes en altura disponible, iguales */
     .axesChips{
       display:flex;
       flex-direction:column;
@@ -223,6 +222,35 @@
       user-select:none;
     }
 
+    /* ✅ Leyenda de Operaciones (solo cuando se renderiza Operaciones vinculadas) */
+    .operLegend{
+      background:#ffffffcc;
+      border:1px solid #e2e8f0;
+      border-radius:12px;
+      padding:10px 10px;
+      margin-bottom:10px;
+      box-shadow:0 1px 4px rgba(15,23,42,.06);
+      font-size:11px;
+      line-height:1.25;
+      color:#0f172a;
+    }
+    .operLegendRow{
+      display:flex;
+      align-items:flex-start;
+      gap:8px;
+      margin:6px 0;
+    }
+    .operLegendDot{
+      width:14px;
+      height:14px;
+      border-radius:999px;
+      flex:0 0 auto;
+      margin-top:2px;
+      border:1px solid rgba(15,23,42,.15);
+    }
+    .operYes{ background: var(--dotYes); }
+    .operNo { background: var(--dotNo); }
+
     /* ============================
        ✅ SVG WRAP + FONDO IMAGEN
        ============================ */
@@ -235,7 +263,6 @@
       background:transparent;
     }
 
-    /* ✅ imagen de fondo con transparencia */
     #svgWrap::before{
       content:"";
       position:absolute;
@@ -249,7 +276,6 @@
       z-index:0;
     }
 
-    /* SVG */
     svg{
       width:100%;
       height:100%;
@@ -376,6 +402,19 @@
   <div id="rightFrame">
     <div id="right">
       <div class="axesBox" id="axesBox">
+
+        <!-- ✅ Leyenda SOLO cuando renderizas Operaciones -->
+        <div id="operLegend" class="operLegend" style="display:none;">
+          <div class="operLegendRow">
+            <span class="operLegendDot operYes"></span>
+            <span>Operaciones verdes: aprobadas antes del lanzamiento de la Estrategia 2024-2027</span>
+          </div>
+          <div class="operLegendRow">
+            <span class="operLegendDot operNo"></span>
+            <span>Operaciones moradas: aprobadas después del lanzamiento de la Estrategia 2024-2027</span>
+          </div>
+        </div>
+
         <div class="axesTitle">Ejes Transversales</div>
         <div class="axesChips">
           <div class="axesChip">Género y Diversidad</div>
@@ -414,6 +453,9 @@ const svgWrapEl = document.getElementById("svgWrap");
 const fOperacion = document.getElementById("fOperacion");
 const fArea = document.getElementById("fArea");
 const fObjetivo = document.getElementById("fObjetivo");
+
+/* ✅ Leyenda */
+const operLegendEl = document.getElementById("operLegend");
 
 function fillSelect(select, options, selected){
   select.innerHTML = "";
@@ -533,8 +575,14 @@ let g = svg.append("g");
 let ROOT_HIER = null;
 let CURRENT_LEVELS_ACTIVE = [];
 
+/* ✅ Mostrar/Ocultar leyenda SOLO si se renderizan Operaciones */
+function updateOperLegendVisibility(){
+  const show = CURRENT_LEVELS_ACTIVE.includes("Operaciones vinculadas");
+  operLegendEl.style.display = show ? "block" : "none";
+}
+
 /* =========================================================
-   ✅ ANCHOS POR COLUMNA (Objetivo Estratégico + Impacto Esperado)
+   ✅ ANCHOS POR COLUMNA
    ========================================================= */
 const BASE_NODE_WIDTH = 560;
 const OBJ_NODE_WIDTH  = 860;
@@ -824,8 +872,10 @@ function fitToViewLeftAnchored(){
    ✅ CÍRCULO POR "Previo EBP 2024-2027" SOLO EN OPERACIONES
    ========================================================= */
 const PREV_KEY = "Previo EBP 2024-2027";
-const DOT_R = 20;        // radio
-const DOT_PAD_X = 18;    // padding desde el borde derecho
+
+/* ✅ AUMENTA ESTO PARA HACER MÁS GRANDE EL CÍRCULO */
+const DOT_R = 14;        // radio (antes 10)
+const DOT_PAD_X = 22;    // distancia al borde derecho
 const DOT_CY = 0;        // centrado vertical
 
 function normPrevValue(v){
@@ -836,7 +886,6 @@ function normPrevValue(v){
 }
 
 function computePrevStatusForNode(d){
-  // Solo aplica para nodos que agrupen filas
   const rows = d?.data?._rows || [];
   if(!rows.length) return "UNKNOWN";
 
@@ -855,17 +904,13 @@ function computePrevStatusForNode(d){
 }
 
 function isOperacionNode(d){
-  // Es nodo de Operaciones si en el arreglo de niveles activos
-  // el label "Operaciones vinculadas" está en ese depth.
   const operDepth = getDepthOfLevelName("Operaciones vinculadas");
   return operDepth !== -1 && d.depth === operDepth;
 }
 
 function addPrevDotToOperacionNodes(nodesSelection){
-  // Crea/actualiza solo para los nodos de Operaciones
   const opNodes = nodesSelection.filter(d => isOperacionNode(d));
 
-  // Defs para el medio círculo (MIX)
   const defs = svg.select("defs").empty() ? svg.append("defs") : svg.select("defs");
 
   defs.selectAll("linearGradient#prevMixGrad").data([1]).join("linearGradient")
@@ -883,7 +928,6 @@ function addPrevDotToOperacionNodes(nodesSelection){
         .attr("stop-color", d=>d.c);
     });
 
-  // Agrega el circulo
   opNodes.selectAll("circle.prevDot")
     .data(d => [d], d => d.data.name)
     .join("circle")
@@ -916,6 +960,9 @@ function addPrevDotToOperacionNodes(nodesSelection){
 /* ========================================================= */
 
 function render(treeData){
+  /* ✅ muestra/oculta leyenda */
+  updateOperLegendVisibility();
+
   svg.selectAll("*").remove();
   g = svg.append("g");
   svg.call(zoom);
@@ -1013,7 +1060,7 @@ function render(treeData){
       .attr("transform", `translate(0, ${centerShiftY})`);
   });
 
-  // ✅ agrega el círculo SOLO en Operaciones vinculadas
+  /* ✅ Círculo SOLO en Operaciones */
   addPrevDotToOperacionNodes(nodes);
 
   renderColumnLabels(CURRENT_LEVELS_ACTIVE);
