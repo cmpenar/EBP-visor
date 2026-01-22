@@ -17,10 +17,10 @@
       --labelFont: 14px;
       --sel:#0b2e4a;
 
-      /* ✅ No bajamos la letra. La hacemos legible. */
-      --nodeFont: 55px;
-      --nodeFontMin: 55px;
-      --nodeFontMax: 66px;
+      /* tipografía nodos */
+      --nodeFont: 34px;
+      --nodeFontMin: 34px;
+      --nodeFontMax: 52px;
     }
 
     html, body { height: 100%; overflow: hidden; }
@@ -104,11 +104,30 @@
       font-size:11px;padding:4px 8px;border-radius:999px;
       background:#eef2ff;border:1px solid #e0e7ff;color:#3730a3
     }
+
     .hint{
-      margin-top:10px;padding:10px;border-radius:12px;
-      background:#f1f5f9;border:1px dashed #cbd5e1;
-      font-size:12px;color:#334155
+      margin-top:10px;
+      padding:12px;
+      border-radius:12px;
+      background:#f1f5f9;
+      border:1px dashed #cbd5e1;
+      font-size:12px;
+      color:#334155
     }
+    .hint b{display:block;margin-bottom:6px}
+
+    .filtersRow{display:grid;grid-template-columns:1fr;gap:10px;margin-top:6px}
+    .hintBtn{
+      padding:10px 12px;
+      border-radius:10px;
+      border:0;
+      background:#0b2e4a;
+      color:#fff;
+      font-weight:900;
+      cursor:pointer;
+      width:100%;
+    }
+    .hintBtn:hover{filter:brightness(.95)}
 
     #svgWrap{position:relative; overflow:hidden;}
     svg{
@@ -197,13 +216,30 @@
 
       <div class="chips" id="orderChips"></div>
 
-      <div class="hint">
-        <b>Gestos:</b> arrastra para mover • rueda/trackpad para zoom • click en un nodo para ver detalle abajo.
-      </div>
+      <!-- ✅ Caja tipo "Gestos" pero para FILTROS -->
+      <div class="hint" style="margin-top:12px">
+        <b>Filtros</b>
+        <div class="filtersRow">
+          <div>
+            <label style="margin:0 0 6px">Operación vinculada</label>
+            <select id="fOperacion"></select>
+          </div>
+          <div>
+            <label style="margin:0 0 6px">Área Prioritaria</label>
+            <select id="fArea"></select>
+          </div>
+          <div>
+            <label style="margin:0 0 6px">Objetivo Estratégico</label>
+            <select id="fObjetivo"></select>
+          </div>
+          <button class="hintBtn" id="applyFiltersBtn">Aplicar filtros y renderizar</button>
+        </div>
 
-      <hr style="border:none;border-top:1px solid #e2e8f0;margin:12px 0">
-      <div class="small"><b>Detalle (click en nodo)</b></div>
-      <div id="detail" class="small" style="margin-top:8px;white-space:pre-wrap"></div>
+        <div style="margin-top:10px">
+          <span style="font-weight:700">Gestos:</span>
+          arrastra para mover • rueda/trackpad para zoom • click en un nodo para resaltar ruta.
+        </div>
+      </div>
     </div>
   </div>
 
@@ -215,6 +251,9 @@
 
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 <script>
+/* =========================
+   CONFIG NIVELES
+========================= */
 const NONE = "(Ninguno)";
 const DEFAULT_LEVELS = ["Área Prioritaria","Objetivo Estratégico", NONE, NONE, NONE];
 
@@ -230,7 +269,6 @@ const LEVEL_OPTIONS = [NONE, ...LABELS_ALLOWED];
 
 const lvlSelects = ["lvl1","lvl2","lvl3","lvl4","lvl5"].map(id=>document.getElementById(id));
 const orderChips = document.getElementById("orderChips");
-const detail = document.getElementById("detail");
 const colLabelsEl = document.getElementById("colLabels");
 const svgWrapEl = document.getElementById("svgWrap");
 
@@ -262,6 +300,71 @@ function updateChips(levelsActive){
   });
 }
 
+function getLevelsFromUI(){
+  const raw = lvlSelects.map(s=>s.value);
+  const active = raw.filter(v => v !== NONE);
+
+  // sin duplicados, preservando orden
+  const used = new Set();
+  const fixed = [];
+  for(const v of active){
+    if(!used.has(v)){ used.add(v); fixed.push(v); }
+  }
+  updateChips(fixed);
+  return fixed;
+}
+
+/* =========================
+   FILTROS
+========================= */
+const fOperacion = document.getElementById("fOperacion");
+const fArea = document.getElementById("fArea");
+const fObjetivo = document.getElementById("fObjetivo");
+const applyFiltersBtn = document.getElementById("applyFiltersBtn");
+
+const FILTER_ANY = "(Todos)";
+
+function uniqSorted(arr){
+  return Array.from(new Set(arr.filter(Boolean))).sort((a,b)=>a.localeCompare(b,"es"));
+}
+
+function fillFilterSelect(sel, values){
+  const opts = [FILTER_ANY, ...values];
+  sel.innerHTML = "";
+  opts.forEach(v=>{
+    const o = document.createElement("option");
+    o.value = v;
+    o.textContent = v;
+    sel.appendChild(o);
+  });
+  sel.value = FILTER_ANY;
+}
+
+function normalizeVal(v){
+  const s = (v ?? "").toString().trim();
+  return s ? s : "(Sin dato)";
+}
+
+function applyRowFilters(rows){
+  const op = fOperacion.value;
+  const ar = fArea.value;
+  const ob = fObjetivo.value;
+
+  return rows.filter(r=>{
+    const vOp = normalizeVal(r["Operaciones vinculadas"]);
+    const vAr = normalizeVal(r["Área Prioritaria"]);
+    const vOb = normalizeVal(r["Objetivo Estratégico"]);
+
+    if(op !== FILTER_ANY && vOp !== op) return false;
+    if(ar !== FILTER_ANY && vAr !== ar) return false;
+    if(ob !== FILTER_ANY && vOb !== ob) return false;
+    return true;
+  });
+}
+
+/* =========================
+   DATA
+========================= */
 async function loadRows(){
   const res = await fetch("./data.json");
   const data = await res.json();
@@ -298,6 +401,9 @@ function buildTree(rows, levelsActive){
   return root;
 }
 
+/* =========================
+   D3 RENDER (NODOS AUTO-ANCHO)
+========================= */
 const svg = d3.select("#viz");
 let g = svg.append("g");
 
@@ -305,19 +411,15 @@ let ROOT_HIER = null;
 let CURRENT_LEVELS_ACTIVE = [];
 let BASE_POS = new Map();
 
-/* ✅ Diseño "crece en horizontal":
-   - Cada nodo calcula su ancho necesario (hasta un máximo).
-   - Para que NO se encimen y sigan en columnas: cada columna usa el MAX ancho de sus nodos.
-   - Las columnas se separan según esos anchos.
-*/
 const PAD_X = 26;
 const PAD_Y = 30;
-const MIN_W = 520;     // mínimo de tarjeta
-const MAX_W = 980;     // máximo de tarjeta (evita monstruos)
-const COL_GAP = 220;   // separación entre columnas
+const MIN_W = 520;
+const MAX_W = 980;
+const COL_GAP = 220;
+const ROW_GAP = 320;
 
-let COL_WIDTHS = [];      // por profundidad
-let COL_OFFSETS = [];     // x acumulado por profundidad
+let COL_WIDTHS = [];
+let COL_OFFSETS = [];
 
 function setNodeFontByZoom(k){
   const base = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--nodeFont")) || 34;
@@ -395,10 +497,6 @@ let zoom = d3.zoom()
   });
 svg.call(zoom);
 
-/* ✅ En vez de envolver por un ancho fijo, usamos el ancho REAL que necesita el texto:
-   - Intentamos 1 línea (sin wrap) para medir.
-   - Si excede MAX_W, entonces sí envolvemos a 2–3 líneas, pero preferimos crecer en horizontal.
-*/
 function wrapText(selection, width){
   selection.each(function(){
     const text = d3.select(this);
@@ -429,11 +527,29 @@ function wrapText(selection, width){
   });
 }
 
+function linkPath(d){
+  const s = d.source, t = d.target;
+  const sx = (s._y ?? s.y) + (s._w || (COL_WIDTHS[s.depth] || MIN_W));
+  const sy = (s._x ?? s.x);
+  const tx = (t._y ?? t.y);
+  const ty = (t._x ?? t.x);
+  const mx = (sx + tx) / 2;
+  return `M${sx},${sy} C${mx},${sy} ${mx},${ty} ${tx},${ty}`;
+}
+function linkPathBase(d){
+  const s = d.source, t = d.target;
+  const sx = (s.y) + (s._w || (COL_WIDTHS[s.depth] || MIN_W));
+  const sy = s.x;
+  const tx = t.y;
+  const ty = t.x;
+  const mx = (sx + tx) / 2;
+  return `M${sx},${sy} C${mx},${sy} ${mx},${ty} ${tx},${ty}`;
+}
+
 function clearSelection(){
   g.selectAll(".node").classed("selected", false).classed("path", false);
   g.selectAll(".link").classed("path", false);
 }
-
 function applyColumnAlignment(selectedNode){
   if(!selectedNode) return;
 
@@ -473,7 +589,6 @@ function applyColumnAlignment(selectedNode){
     .transition().duration(520)
     .attr("d", linkPath);
 }
-
 function resetToBaseLayout(){
   if(!ROOT_HIER) return;
 
@@ -491,7 +606,6 @@ function resetToBaseLayout(){
     .transition().duration(380)
     .attr("d", linkPathBase);
 }
-
 function zoomToPath(pathNodesArr){
   if(!pathNodesArr || pathNodesArr.length === 0) return;
 
@@ -534,27 +648,6 @@ function zoomToPath(pathNodesArr){
   );
 }
 
-/* ✅ links que respetan ancho variable:
-   salen del borde derecho del source y llegan al borde izquierdo del target */
-function linkPath(d){
-  const s = d.source, t = d.target;
-  const sx = (s._y ?? s.y) + (s._w || (COL_WIDTHS[s.depth] || MIN_W));
-  const sy = (s._x ?? s.x);
-  const tx = (t._y ?? t.y);
-  const ty = (t._x ?? t.x);
-  const mx = (sx + tx) / 2;
-  return `M${sx},${sy} C${mx},${sy} ${mx},${ty} ${tx},${ty}`;
-}
-function linkPathBase(d){
-  const s = d.source, t = d.target;
-  const sx = (s.y) + (s._w || (COL_WIDTHS[s.depth] || MIN_W));
-  const sy = s.x;
-  const tx = t.y;
-  const ty = t.x;
-  const mx = (sx + tx) / 2;
-  return `M${sx},${sy} C${mx},${sy} ${mx},${ty} ${tx},${ty}`;
-}
-
 function render(treeData){
   svg.selectAll("*").remove();
   g = svg.append("g");
@@ -562,11 +655,10 @@ function render(treeData){
 
   ROOT_HIER = d3.hierarchy(treeData);
 
-  // Layout base (solo para x vertical). y lo definimos luego por columnas.
-  const rowGap = 320; // ✅ evita encimes con letra grande
-  d3.tree().nodeSize([rowGap, 1])(ROOT_HIER);
+  // Layout base para vertical
+  d3.tree().nodeSize([ROW_GAP, 1])(ROOT_HIER);
 
-  // 1) Crear nodos con un ancho provisional (mínimo), medir texto sin wrap.
+  // Crear nodos
   const nodesG = g.selectAll(".node")
     .data(ROOT_HIER.descendants())
     .join("g")
@@ -584,30 +676,25 @@ function render(treeData){
     .attr("y", 0)
     .text(d=>d.data.name);
 
-  // Medir ancho requerido por nodo (preferimos 1 línea; si se pasa, wrap al máximo permitido)
+  // Medir y ajustar tamaños (preferimos horizontal)
   nodesG.each(function(d){
     const node = d3.select(this);
     const textEl = node.select("text.title");
 
-    // ✅ medir texto en una sola línea (sin wrap) -> bbox.width
+    // Medir una línea
     const bbox1 = textEl.node().getBBox();
     let desiredW = Math.ceil(bbox1.width + PAD_X*2);
-
-    // clamp
     desiredW = Math.max(MIN_W, Math.min(MAX_W, desiredW));
     d._w = desiredW;
 
-    // si llegamos al MAX_W y aún es largo, ahora sí envolvemos para que no se corte
     if (desiredW >= MAX_W - 2){
-      textEl.text(d.data.name); // reset
+      textEl.text(d.data.name);
       wrapText(textEl, MAX_W - PAD_X*2);
       const bboxWrapped = textEl.node().getBBox();
-      // recalcular ancho requerido (puede bajar un poco)
       let w2 = Math.ceil(Math.min(MAX_W, Math.max(MIN_W, bboxWrapped.width + PAD_X*2)));
       d._w = w2;
     }
 
-    // altura según texto (con wrap o sin wrap)
     const bboxFinal = textEl.node().getBBox();
     const h = Math.ceil(bboxFinal.height + PAD_Y*2);
     d.data._h = h;
@@ -617,51 +704,43 @@ function render(treeData){
       .attr("height", h)
       .attr("width", d._w);
 
-    // centrar texto verticalmente dentro del rect
     const centerShiftY = - (bboxFinal.y + bboxFinal.height / 2);
     textEl.attr("transform", `translate(0, ${centerShiftY})`);
   });
 
-  // 2) Calcular ancho por columna (máximo por depth) y offsets acumulados
+  // Ancho máximo por columna
   const maxDepth = d3.max(ROOT_HIER.descendants(), d=>d.depth) || 0;
   COL_WIDTHS = new Array(maxDepth+1).fill(MIN_W);
   ROOT_HIER.descendants().forEach(d=>{
     COL_WIDTHS[d.depth] = Math.max(COL_WIDTHS[d.depth], d._w || MIN_W);
   });
 
+  // offsets acumulados por depth
   COL_OFFSETS = new Array(maxDepth+1).fill(0);
   for(let depth=1; depth<=maxDepth; depth++){
     COL_OFFSETS[depth] = COL_OFFSETS[depth-1] + COL_WIDTHS[depth-1] + COL_GAP;
   }
 
-  // 3) Asignar y por columna (fijo) y reposicionar nodos
+  // asignar y por columna (fija), normalizar ancho al de la columna
   ROOT_HIER.descendants().forEach(d=>{
     d.y = COL_OFFSETS[d.depth];
     d._x = d.x;
     d._y = d.y;
-
-    // Normalizar ancho al de la columna (para que TODOS queden alineados y no se encimen)
     d._w = COL_WIDTHS[d.depth];
   });
 
-  // aplicar ancho columna a rects (sin cambiar texto)
-  nodesG.select("rect")
-    .attr("width", d=>COL_WIDTHS[d.depth]);
-
-  // asegurar x de texto padding desde izquierda
-  nodesG.select("text.title")
-    .attr("x", PAD_X);
-
+  nodesG.select("rect").attr("width", d=>COL_WIDTHS[d.depth]);
+  nodesG.select("text.title").attr("x", PAD_X);
   nodesG.attr("transform", d => `translate(${d.y},${d.x})`);
 
-  // 4) Links usando ancho variable/por columna
+  // Links
   g.selectAll(".link")
     .data(ROOT_HIER.links())
     .join("path")
     .attr("class","link")
     .attr("d", linkPathBase);
 
-  // interacciones
+  // Click en nodo resalta ruta
   nodesG.on("click", (event,d)=>{
     event.stopPropagation();
 
@@ -683,20 +762,6 @@ function render(treeData){
 
     applyColumnAlignment(d);
     zoomToPath(pathNodes);
-
-    const sample = (d.data._rows && d.data._rows[0]) ? d.data._rows[0] : null;
-    const lines = [];
-    lines.push(`Nodo: ${d.data.name}`);
-    if(sample){
-      lines.push("");
-      lines.push("Ejemplo de fila asociada:");
-      Object.keys(sample).forEach(k=>{
-        if(["ID","ID_Area"].includes(k)) return;
-        const v=(sample[k]??"").toString().trim();
-        if(v) lines.push(`- ${k}: ${v}`);
-      });
-    }
-    detail.textContent = lines.join("\n");
   });
 
   svg.on("click", ()=>{
@@ -704,10 +769,9 @@ function render(treeData){
     resetToBaseLayout();
   });
 
-  // etiquetas de columnas solo para niveles activos (depth 1..N)
   renderColumnLabels(CURRENT_LEVELS_ACTIVE);
 
-  // encuadre inicial
+  // Fit inicial
   fitToView();
   function fitToView(){
     const bounds = g.node().getBBox();
@@ -730,7 +794,6 @@ function render(treeData){
     });
   }
 
-  // guardar base pos
   BASE_POS = new Map();
   ROOT_HIER.descendants().forEach(n=>{
     BASE_POS.set(n, {x:n.x, y:n.y});
@@ -740,34 +803,45 @@ function render(treeData){
   setNodeFontByZoom(d3.zoomTransform(svg.node()).k);
 }
 
-function getLevelsFromUI(){
-  const raw = lvlSelects.map(s=>s.value);
-  const active = raw.filter(v => v !== NONE);
+/* =========================
+   ORQUESTACIÓN
+========================= */
+let ROWS_CACHE = null;
 
-  const used = new Set();
-  const fixed = [];
-  for(const v of active){
-    if(!used.has(v)){ used.add(v); fixed.push(v); }
-  }
+function buildFiltersFromRows(rows){
+  const ops = uniqSorted(rows.map(r=>normalizeVal(r["Operaciones vinculadas"])));
+  const areas = uniqSorted(rows.map(r=>normalizeVal(r["Área Prioritaria"])));
+  const objetivos = uniqSorted(rows.map(r=>normalizeVal(r["Objetivo Estratégico"])));
 
-  updateChips(fixed);
-  return fixed;
+  fillFilterSelect(fOperacion, ops);
+  fillFilterSelect(fArea, areas);
+  fillFilterSelect(fObjetivo, objetivos);
 }
 
-let ROWS_CACHE=null;
+function renderWithCurrentUI(){
+  const levelsActive = getLevelsFromUI();
+  CURRENT_LEVELS_ACTIVE = levelsActive;
+
+  const filteredRows = applyRowFilters(ROWS_CACHE);
+  const tree = buildTree(filteredRows, levelsActive);
+  render(tree);
+}
 
 async function main(){
   ROWS_CACHE = await loadRows();
-  CURRENT_LEVELS_ACTIVE = getLevelsFromUI();
-  const tree = buildTree(ROWS_CACHE, CURRENT_LEVELS_ACTIVE);
-  render(tree);
+  buildFiltersFromRows(ROWS_CACHE);
+
+  // Render inicial
+  renderWithCurrentUI();
 }
 main();
 
 document.getElementById("renderBtn").onclick = ()=>{
-  CURRENT_LEVELS_ACTIVE = getLevelsFromUI();
-  const tree = buildTree(ROWS_CACHE, CURRENT_LEVELS_ACTIVE);
-  render(tree);
+  renderWithCurrentUI();
+};
+
+applyFiltersBtn.onclick = ()=>{
+  renderWithCurrentUI();
 };
 
 window.addEventListener("resize", ()=>{
@@ -776,4 +850,3 @@ window.addEventListener("resize", ()=>{
 </script>
 </body>
 </html>
-
