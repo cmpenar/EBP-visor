@@ -335,9 +335,8 @@ function wrapText(selection, width){
     const lineHeight = 1.25;
     const x = text.attr("x");
     const y = text.attr("y");
-    const dy = parseFloat(text.attr("dy") || 0);
 
-    let tspan = text.append("tspan").attr("x", x).attr("y", y).attr("dy", dy + "em");
+    let tspan = text.append("tspan").attr("x", x).attr("y", y).attr("dy", "0em");
 
     for (let i=0; i<words.length; i++){
       line.push(words[i]);
@@ -349,7 +348,7 @@ function wrapText(selection, width){
         tspan = text.append("tspan")
           .attr("x", x)
           .attr("y", y)
-          .attr("dy", (++lineNumber * lineHeight + dy) + "em")
+          .attr("dy", (++lineNumber * lineHeight) + "em")
           .text(words[i]);
       }
     }
@@ -359,6 +358,52 @@ function wrapText(selection, width){
 function clearSelection(){
   g.selectAll(".node").classed("selected", false).classed("path", false);
   g.selectAll(".link").classed("path", false);
+}
+
+/* ✅ Reencuadrar ruta completa (root -> nodo) */
+function zoomToPath(pathNodesArr){
+  if(!pathNodesArr || pathNodesArr.length === 0) return;
+
+  // Bounds de los rectángulos de esos nodos
+  let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+
+  for(const n of pathNodesArr){
+    // posición del nodo (layout)
+    const x = n.y;
+    const y = n.x;
+
+    const w = NODE_CARD_WIDTH;
+    const h = (n.data._h || 60); // guardamos h en render
+
+    minX = Math.min(minX, x);
+    maxX = Math.max(maxX, x + w);
+    minY = Math.min(minY, y - h/2);
+    maxY = Math.max(maxY, y + h/2);
+  }
+
+  const boundsW = maxX - minX;
+  const boundsH = maxY - minY;
+
+  const svgW = svg.node().clientWidth;
+  const svgH = svg.node().clientHeight;
+
+  const pad = 80;
+  const scale = Math.min(2.3, Math.max(0.35,
+    0.92 / Math.max(boundsW / (svgW - pad), boundsH / (svgH - pad))
+  ));
+
+  const midX = minX + boundsW/2;
+  const midY = minY + boundsH/2;
+
+  const translate = [
+    svgW/2 - scale * midX,
+    svgH/2 - scale * midY
+  ];
+
+  svg.transition().duration(650).call(
+    zoom.transform,
+    d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale)
+  );
 }
 
 function render(treeData){
@@ -396,22 +441,28 @@ function render(treeData){
     .on("click", (event,d)=>{
       event.stopPropagation();
 
-      // limpiar selección
       clearSelection();
 
-      // marcar nodo seleccionado
+      // marcar seleccionado
       d3.select(event.currentTarget).classed("selected", true);
 
-      // marcar camino a la raíz
+      // armar camino a raíz
       let cur = d;
-      const pathNodes = new Set();
+      const pathNodes = [];
+      const pathSet = new Set();
       while(cur){
-        pathNodes.add(cur);
+        pathNodes.push(cur);
+        pathSet.add(cur);
         cur = cur.parent;
       }
+      pathNodes.reverse(); // root -> seleccionado
 
-      g.selectAll(".node").classed("path", n => pathNodes.has(n));
-      g.selectAll(".link").classed("path", l => pathNodes.has(l.target));
+      // aplicar clases camino
+      g.selectAll(".node").classed("path", n => pathSet.has(n));
+      g.selectAll(".link").classed("path", l => pathSet.has(l.target));
+
+      // ✅ reencuadrar para ver lineal la selección
+      zoomToPath(pathNodes);
 
       // detalle
       const sample = (d.data._rows && d.data._rows[0]) ? d.data._rows[0] : null;
@@ -431,7 +482,6 @@ function render(treeData){
       detail.textContent = lines.join("\n");
     });
 
-  // click fuera: limpiar selección
   svg.on("click", ()=>clearSelection());
 
   nodes.append("rect")
@@ -443,30 +493,44 @@ function render(treeData){
   const title = nodes.append("text")
     .attr("class","title")
     .attr("x", 12)
-    .attr("y", -14)
+    .attr("y", 0)      /* ✅ ahora lo ponemos “temporal” en 0 */
     .attr("dy", 0)
     .text(d=>d.data.name);
 
   title.call(wrapText, textWrapWidth);
 
-  // ajustar altura de rect según líneas del título
+  /* ✅ CENTRADO VERTICAL REAL:
+     calculamos líneas y movemos el texto para que el bloque quede centrado */
   nodes.each(function(d){
     const node = d3.select(this);
+
     const tspans = node.selectAll("text.title tspan").nodes();
     const lines = tspans.length || 1;
-    const titleHeight = Math.max(1, lines) * 15;
-    const h = 28 + titleHeight + 18;
+    const linePx = 15;
+    const titleHeight = lines * linePx;
 
+    const paddingTopBottom = 22; // aire
+    const h = titleHeight + paddingTopBottom;
+
+    // guardamos altura para zoomToPath
+    d.data._h = h;
+
+    // rect centrado
     node.select("rect")
       .attr("y", -(h/2))
       .attr("height", h);
 
+    // el primer tspan está en y=0; lo movemos para centrar el bloque
+    const topOfTextBlock = -titleHeight/2 + (linePx * 0.8);
     node.select("text.title")
-      .attr("y", -(h/2) + 14);
+      .attr("y", topOfTextBlock);
+
+    // mover cada tspan con dy relativo ya está OK por wrapText
   });
 
   renderColumnLabels(CURRENT_LEVELS);
 
+  // fit inicial
   fitToView();
   function fitToView(){
     const bounds = g.node().getBBox();
