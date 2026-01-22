@@ -20,6 +20,10 @@
       --nodeFont: 34px;
       --nodeFontMin: 34px;
       --nodeFontMax: 52px;
+
+      /* ✅ color del encabezado (más cercano al azul del logo BID) */
+      --headerA:#0a6a84;
+      --headerB:#0b3a68;
     }
 
     html, body { height: 100%; overflow: hidden; }
@@ -30,10 +34,11 @@
       color:var(--ink);
     }
 
+    /* ✅ Encabezado con fondo ajustado */
     header{
       position:relative;
       padding:22px 16px;
-      background:linear-gradient(90deg,#0b2e4a,#0b3a68);
+      background:linear-gradient(90deg,var(--headerA),var(--headerB));
       color:#fff;
       border-bottom:1px solid rgba(255,255,255,.12);
     }
@@ -41,21 +46,34 @@
       display:flex;
       align-items:center;
       justify-content:center;
-      gap:16px;
+      gap:18px;
       text-align:center;
       width:100%;
     }
+
+    /* ✅ SIN rectángulo/borde; logo más grande (aprox al recuadro amarillo) */
     .logo{
-      width:64px;height:64px;border-radius:14px;
-      background:rgba(255,255,255,.10);
-      border:1px solid rgba(255,255,255,.14);
-      overflow:hidden;flex:0 0 auto;
-      display:flex;align-items:center;justify-content:center;
+      width:86px;
+      height:86px;
+      border-radius:0;
+      background:transparent;
+      border:none;
+      overflow:visible;
+      flex:0 0 auto;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      box-shadow:none;
     }
     .logo img{
-      width:100%;height:100%;object-fit:contain;
-      padding:10px;box-sizing:border-box;display:block;
+      width:86px;
+      height:86px;
+      object-fit:contain;
+      padding:0;
+      display:block;
+      filter: drop-shadow(0 6px 14px rgba(0,0,0,.18));
     }
+
     header h1{
       margin:0;
       font-size:44px;
@@ -168,7 +186,8 @@
       svg{height:75vh}
       header h1{font-size:34px}
       header p{font-size:14px}
-      .logo{width:54px;height:54px}
+      .logo{width:72px;height:72px}
+      .logo img{width:72px;height:72px}
     }
 
     .colLabels{
@@ -330,13 +349,10 @@ function setOptionsPreserveValue(selectEl, values){
     selectEl.appendChild(o);
   }
 
-  // si el valor previo ya no existe, cae a (Todos)
-  const canKeep = opts.includes(prev);
-  selectEl.value = canKeep ? prev : FILTER_ANY;
+  selectEl.value = opts.includes(prev) ? prev : FILTER_ANY;
 }
 
 function filterRowsByCriteria(rows, crit){
-  // crit: { op, area, obj } donde cada uno puede ser FILTER_ANY
   return rows.filter(r=>{
     const vOp = normalizeVal(r["Operaciones vinculadas"]);
     const vAr = normalizeVal(r["Área Prioritaria"]);
@@ -349,10 +365,7 @@ function filterRowsByCriteria(rows, crit){
   });
 }
 
-/* ✅ Actualiza los 3 selects para que sean “mutuamente excluyentes”
-   - Si eliges 1, los otros 2 se recalculan con base en la selección actual
-   - Mantiene el valor actual si sigue siendo válido; si no, vuelve a (Todos)
-*/
+/* ✅ Mutua exclusión: recalcula opciones basadas en selecciones actuales */
 function refreshFilterOptions(){
   if(!ROWS_CACHE) return;
 
@@ -362,22 +375,16 @@ function refreshFilterOptions(){
     obj: fObjetivo.value || FILTER_ANY
   };
 
-  // Opciones posibles para Operación, dado Área+Objetivo actuales
   const rowsForOp = filterRowsByCriteria(ROWS_CACHE, { area: current.area, obj: current.obj });
   const ops = uniqSorted(rowsForOp.map(r=>normalizeVal(r["Operaciones vinculadas"])));
   setOptionsPreserveValue(fOperacion, ops);
-
-  // Releer por si se cayó a (Todos)
   current.op = fOperacion.value || FILTER_ANY;
 
-  // Opciones posibles para Área, dado Operación+Objetivo actuales
   const rowsForArea = filterRowsByCriteria(ROWS_CACHE, { op: current.op, obj: current.obj });
   const areas = uniqSorted(rowsForArea.map(r=>normalizeVal(r["Área Prioritaria"])));
   setOptionsPreserveValue(fArea, areas);
-
   current.area = fArea.value || FILTER_ANY;
 
-  // Opciones posibles para Objetivo, dado Operación+Área actuales
   const rowsForObj = filterRowsByCriteria(ROWS_CACHE, { op: current.op, area: current.area });
   const objs = uniqSorted(rowsForObj.map(r=>normalizeVal(r["Objetivo Estratégico"])));
   setOptionsPreserveValue(fObjetivo, objs);
@@ -569,7 +576,7 @@ function linkPath(d){
 }
 function linkPathBase(d){
   const s = d.source, t = d.target;
-  const sx = (s.y) + (s._w || (COL_WIDTHS[s.depth] || MIN_W));
+  const sx = s.y + (s._w || (COL_WIDTHS[s.depth] || MIN_W));
   const sy = s.x;
   const tx = t.y;
   const ty = t.x;
@@ -685,8 +692,7 @@ function render(treeData){
   svg.call(zoom);
 
   ROOT_HIER = d3.hierarchy(treeData);
-
-  d3.tree().nodeSize([ROW_GAP, 1])(ROOT_HIER);
+  d3.tree().nodeSize([320, 1])(ROOT_HIER);
 
   const nodesG = g.selectAll(".node")
     .data(ROOT_HIER.descendants())
@@ -836,15 +842,12 @@ function renderWithCurrentUI(){
 async function main(){
   ROWS_CACHE = await loadRows();
 
-  // inicializar filtros con TODO el universo
-  fOperacion.innerHTML = `<option value="${FILTER_ANY}">${FILTER_ANY}</option>`;
-  fArea.innerHTML = `<option value="${FILTER_ANY}">${FILTER_ANY}</option>`;
-  fObjetivo.innerHTML = `<option value="${FILTER_ANY}">${FILTER_ANY}</option>`;
-  fOperacion.value = FILTER_ANY; fArea.value = FILTER_ANY; fObjetivo.value = FILTER_ANY;
+  fOperacion.innerHTML = `<option value="(Todos)">(Todos)</option>`;
+  fArea.innerHTML = `<option value="(Todos)">(Todos)</option>`;
+  fObjetivo.innerHTML = `<option value="(Todos)">(Todos)</option>`;
+  fOperacion.value = "(Todos)"; fArea.value = "(Todos)"; fObjetivo.value = "(Todos)";
 
-  // cargar opciones mutuamente consistentes
   refreshFilterOptions();
-
   renderWithCurrentUI();
 }
 main();
@@ -853,32 +856,21 @@ document.getElementById("renderBtn").onclick = ()=>{ renderWithCurrentUI(); };
 applyFiltersBtn.onclick = ()=>{ renderWithCurrentUI(); };
 
 resetBtn.onclick = ()=>{
-  // reset niveles
   lvlSelects.forEach((sel,i)=>fillSelect(sel, LEVEL_OPTIONS, DEFAULT_LEVELS[i] || NONE));
 
-  // reset filtros
-  fOperacion.value = FILTER_ANY;
-  fArea.value = FILTER_ANY;
-  fObjetivo.value = FILTER_ANY;
+  fOperacion.value = "(Todos)";
+  fArea.value = "(Todos)";
+  fObjetivo.value = "(Todos)";
 
   refreshFilterOptions();
   renderWithCurrentUI();
 };
 
-/* ✅ MUTUA EXCLUSIÓN: cada cambio recalcula las listas de los otros */
-fOperacion.addEventListener("change", ()=>{
-  refreshFilterOptions();
-});
-fArea.addEventListener("change", ()=>{
-  refreshFilterOptions();
-});
-fObjetivo.addEventListener("change", ()=>{
-  refreshFilterOptions();
-});
+fOperacion.addEventListener("change", refreshFilterOptions);
+fArea.addEventListener("change", refreshFilterOptions);
+fObjetivo.addEventListener("change", refreshFilterOptions);
 
-window.addEventListener("resize", ()=>{
-  positionColumnLabels();
-});
+window.addEventListener("resize", positionColumnLabels);
 </script>
 </body>
 </html>
