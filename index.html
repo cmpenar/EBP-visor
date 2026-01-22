@@ -16,11 +16,14 @@
 
       --labelFont: 14px;
       --sel:#0b2e4a;
-      --nodeFont: 26px; /* ⬆️ tamaño base de texto en nodos */
+
+      /* ✅ MÁS GRANDE por defecto (legible) */
+      --nodeFont: 34px;          /* antes 26px */
+      --nodeFontMin: 22px;       /* mínimo al alejarte */
+      --nodeFontMax: 54px;       /* máximo al acercarte */
     }
 
     html, body { height: 100%; overflow: hidden; }
-
     body{
       margin:0;
       font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
@@ -28,7 +31,6 @@
       color:var(--ink);
     }
 
-    /* ✅ Header MÁS GRANDE, centrado, con logo */
     header{
       position:relative;
       padding:22px 16px;
@@ -66,7 +68,7 @@
     }
     header h1{
       margin:0;
-      font-size:44px;   /* ⬆️ más grande */
+      font-size:44px;
       line-height:1.03;
       font-weight:950;
       letter-spacing:.2px;
@@ -79,10 +81,10 @@
 
     .wrap{
       display:grid;
-      grid-template-columns:320px 1fr;
+      grid-template-columns:360px 1fr;
       gap:12px;
       padding:12px;
-      height:calc(100vh - 116px); /* ajustado al header más alto */
+      height:calc(100vh - 116px);
       box-sizing:border-box;
     }
 
@@ -148,12 +150,12 @@
       fill:#fff;
       stroke:#94a3b8;
       stroke-width:1.2;
-      rx:12; ry:12
+      rx:14; ry:14;
     }
     .node .title{
       font-size:var(--nodeFont);
       fill:#0f172a;
-      font-weight:800;
+      font-weight:900;
     }
     .link{
       fill:none;
@@ -234,7 +236,6 @@
 <header>
   <div class="headerCenter">
     <div class="logo" title="BID">
-      <!-- ✅ Logo BID desde tu link -->
       <img src="https://portales.sre.gob.mx/dgvosc/images/phocagallery/bid.png" alt="Logo BID">
     </div>
     <div>
@@ -280,11 +281,10 @@
 <script>
 const NONE = "(Ninguno)";
 
-/* ✅ PRECARGA como pediste:
-   - Nivel 1: Área Prioritaria (si tú realmente quisiste "Área Estratégica" y existe en tu data,
-     dímelo y lo cambio exacto)
-   - Nivel 2: Objetivo Estratégico
-   - Nivel 3-5: Ninguno
+/* ✅ Precarga como pediste:
+   1: Área Prioritaria
+   2: Objetivo Estratégico
+   3-5: Ninguno
 */
 const DEFAULT_LEVELS = ["Área Prioritaria","Objetivo Estratégico", NONE, NONE, NONE];
 
@@ -313,6 +313,7 @@ function fillSelect(select, options, selected){
     select.appendChild(o);
   });
 }
+lvlSelects.forEach((sel,i)=>fillSelect(sel, LEVEL_OPTIONS, DEFAULT_LEVELS[i] || NONE));
 
 function updateChips(levelsActive){
   orderChips.innerHTML="";
@@ -330,8 +331,6 @@ function updateChips(levelsActive){
     orderChips.appendChild(d);
   });
 }
-
-lvlSelects.forEach((sel,i)=>fillSelect(sel, LEVEL_OPTIONS, DEFAULT_LEVELS[i] || NONE));
 
 async function loadRows(){
   const res = await fetch("./data.json");
@@ -374,15 +373,21 @@ let g = svg.append("g");
 
 let ROOT_HIER = null;
 let CURRENT_LEVELS_ACTIVE = [];
-let NODE_CARD_WIDTH = 520;
-let COL_STEP_X = 720;
+let NODE_CARD_WIDTH = 560; /* ✅ más ancho para aprovechar espacio */
+let COL_STEP_X = 780;
 
 let BASE_POS = new Map();
 
+/* ✅ Letras SIEMPRE legibles:
+   - por defecto grande
+   - y con zoom sube/baja, pero con mínimos altos
+*/
 function setNodeFontByZoom(k){
-  const base = 26;
+  const base = 34; // ✅ grande por defecto
   const scaled = base * k;
-  const clamped = Math.max(18, Math.min(44, scaled));
+  const min = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--nodeFontMin")) || 22;
+  const max = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--nodeFontMax")) || 54;
+  const clamped = Math.max(min, Math.min(max, scaled));
   document.documentElement.style.setProperty("--nodeFont", clamped.toFixed(1) + "px");
 }
 function setLabelFontByZoom(k){
@@ -410,8 +415,7 @@ function autoLiftLabels(){
   for(const el of labels){
     maxH = Math.max(maxH, el.getBoundingClientRect().height);
   }
-  const safeBottom = 10;
-  colLabelsEl.style.bottom = `${Math.ceil(maxH + safeBottom)}px`;
+  colLabelsEl.style.bottom = `${Math.ceil(maxH + 10)}px`;
 }
 function positionColumnLabels(){
   if(!ROOT_HIER) return;
@@ -465,7 +469,7 @@ function wrapText(selection, width){
 
     let line = [];
     let lineNumber = 0;
-    const lineHeight = 1.25;
+    const lineHeight = 1.18;  // ✅ un poquito más compacto
     const x = text.attr("x");
 
     let tspan = text.append("tspan").attr("x", x).attr("y", 0).attr("dy", "0em");
@@ -573,7 +577,7 @@ function zoomToPath(pathNodesArr){
   const svgW = svg.node().clientWidth;
   const svgH = svg.node().clientHeight;
 
-  const pad = 180;
+  const pad = 220;
   const scale = Math.min(3.0, Math.max(0.45,
     0.95 / Math.max(boundsW / (svgW - pad), boundsH / (svgH - pad))
   ));
@@ -599,12 +603,13 @@ function render(treeData){
 
   ROOT_HIER = d3.hierarchy(treeData);
 
-  const colGap = 200;
+  const colGap = 240;
   COL_STEP_X = NODE_CARD_WIDTH + colGap;
+  const textWrapWidth = NODE_CARD_WIDTH - 36;
 
-  const textWrapWidth = NODE_CARD_WIDTH - 28;
+  /* ✅ más separación vertical para que texto grande no choque */
+  const rowGap = 280;
 
-  const rowGap = 220;
   const treeLayout = d3.tree().nodeSize([rowGap, 1]);
   treeLayout(ROOT_HIER);
 
@@ -673,13 +678,13 @@ function render(treeData){
 
   nodes.append("rect")
     .attr("x", 0)
-    .attr("y", -44)
+    .attr("y", -60)
     .attr("width", NODE_CARD_WIDTH)
-    .attr("height", 88);
+    .attr("height", 120);
 
   const title = nodes.append("text")
     .attr("class","title")
-    .attr("x", 18)
+    .attr("x", 20)
     .attr("y", 0)
     .text(d=>d.data.name);
 
@@ -690,7 +695,8 @@ function render(treeData){
     const textEl = node.select("text.title").node();
     const bbox = textEl.getBBox();
 
-    const padY = 30;
+    /* ✅ padding extra para texto grande */
+    const padY = 40;
     const h = bbox.height + padY * 2;
     d.data._h = h;
 
@@ -716,18 +722,20 @@ function render(treeData){
     const midX = bounds.x + bounds.width / 2;
     const midY = bounds.y + bounds.height / 2;
 
-    const scale = 0.92 / Math.max(bounds.width / svgW, bounds.height / svgH);
+    const scale = 0.9 / Math.max(bounds.width / svgW, bounds.height / svgH);
     const translate = [svgW / 2 - scale * midX, svgH / 2 - scale * midY];
 
     svg.transition().duration(400).call(
       zoom.transform,
-      d3.zoomIdentity.translate(translate[0], translate[1]).scale(Math.min(scale, 1.2))
+      d3.zoomIdentity.translate(translate[0], translate[1]).scale(Math.min(scale, 1.15))
     ).on("end", ()=>{
       positionColumnLabels();
     });
   }
 
   setTimeout(positionColumnLabels, 450);
+  /* ✅ forzar tamaño legible desde el arranque */
+  setNodeFontByZoom(d3.zoomTransform(svg.node()).k);
 }
 
 function getLevelsFromUI(){
