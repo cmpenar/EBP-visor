@@ -17,7 +17,7 @@
       --labelFont: 12px;
       --sel:#0b2e4a; /* azul oscuro como header */
 
-      --nodeFont: 14px; /* texto un poco más grande */
+      --nodeFont: 14px; /* ✅ tamaño solicitado */
     }
 
     html, body { height: 100%; overflow: hidden; }
@@ -331,7 +331,6 @@ let COL_STEP_X = 380;
 
 // base (para reset)
 let BASE_POS = new Map();  // node -> {x,y}
-let BASE_LINKS = null;
 
 function setLabelFontByZoom(k){
   const base = 12;
@@ -449,10 +448,8 @@ function clearSelection(){
 }
 
 /* =========================
-   ✅ Re-distribución SIN reordenar:
-   - Mueve cada columna entera (depth) con un offset
-   - Así el nodo del camino por columna queda alineado en una línea
-   - No altera el orden interno de la columna
+   Re-distribución SIN reordenar:
+   - Mueve cada columna entera con un offset
 ========================= */
 function applyColumnAlignment(selectedNode){
   if(!selectedNode) return;
@@ -468,11 +465,11 @@ function applyColumnAlignment(selectedNode){
   }
   path.reverse();
 
-  // baseline = altura (x) del nodo seleccionado en su posición base
+  // baseline = altura del nodo seleccionado en base
   const baseSel = BASE_POS.get(selectedNode);
   const baseline = baseSel ? baseSel.x : selectedNode.x;
 
-  // offset por depth: baseline - x_del_nodo_camino_en_esa_columna
+  // offset por depth
   const depthOffsets = new Map();
   ROOT_HIER.descendants().forEach(n=>{
     if(!depthOffsets.has(n.depth)) depthOffsets.set(n.depth, 0);
@@ -484,7 +481,7 @@ function applyColumnAlignment(selectedNode){
     depthOffsets.set(depth, baseline - b.x);
   }
 
-  // aplicar nuevas posiciones: x' = base.x + offset(depth) ; y queda igual
+  // aplicar nuevas posiciones
   ROOT_HIER.descendants().forEach(n=>{
     const b = BASE_POS.get(n);
     const off = depthOffsets.get(n.depth) || 0;
@@ -492,12 +489,10 @@ function applyColumnAlignment(selectedNode){
     n._y = (b ? b.y : n.y);
   });
 
-  // transición nodes
   g.selectAll(".node")
     .transition().duration(520)
     .attr("transform", d => `translate(${d._y},${d._x})`);
 
-  // transición links
   g.selectAll(".link")
     .transition().duration(520)
     .attr("d", d3.linkHorizontal()
@@ -525,7 +520,7 @@ function resetToBaseLayout(){
 }
 
 /* =========================
-   Zoom a la ruta (solo encuadre, no ocultar nada)
+   Zoom a la ruta (encuadre)
 ========================= */
 function zoomToPath(pathNodesArr){
   if(!pathNodesArr || pathNodesArr.length === 0) return;
@@ -635,14 +630,10 @@ function render(treeData){
       }
       pathNodes.reverse();
 
-      // resaltar ruta (sin ocultar nada)
       g.selectAll(".node").classed("path", n => pathSet.has(n));
       g.selectAll(".link").classed("path", l => pathSet.has(l.target));
 
-      // ✅ redistribuir por columnas (sin reordenar)
       applyColumnAlignment(d);
-
-      // encuadrar ruta (opcional, no oculta nada)
       zoomToPath(pathNodes);
 
       // detalle
@@ -661,7 +652,7 @@ function render(treeData){
       detail.textContent = lines.join("\n");
     });
 
-  // click fondo: reset layout y selección
+  // click fondo: reset
   svg.on("click", ()=>{
     clearSelection();
     resetToBaseLayout();
@@ -683,7 +674,7 @@ function render(treeData){
 
   title.call(wrapText, textWrapWidth);
 
-  // ✅ centrado vertical real por bbox (evita textos pegados arriba/abajo)
+  // centrado vertical real
   nodes.each(function(d){
     const node = d3.select(this);
     const textEl = node.select("text.title").node();
