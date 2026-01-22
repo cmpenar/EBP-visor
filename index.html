@@ -23,6 +23,10 @@
 
       --soft:#f1f5f9;
       --softBorder:#cbd5e1;
+
+      /* ✅ FONDO CON IMAGEN EN EL ÁRBOL */
+      --treeBgUrl: url("https://raw.githubusercontent.com/cmpenar/EBP-visor/main/Fondo.png");
+      --treeBgOpacity: 0.14; /* ajusta 0.10–0.20 */
     }
 
     html, body { height: 100%; overflow: hidden; }
@@ -173,7 +177,7 @@
       border-radius:12px;
       padding:12px;
       box-shadow:0 1px 4px rgba(15,23,42,.06);
-      overflow:hidden; /* ✅ que no se coma al mapa */
+      overflow:hidden;
       display:flex;
       flex-direction:column;
       min-height:0;
@@ -213,16 +217,43 @@
       user-select:none;
     }
 
+    /* ============================
+       ✅ SVG WRAP + FONDO IMAGEN
+       ============================ */
+    #svgWrap{
+      position:relative;
+      overflow:hidden;
+      height:100%;
+      min-width:0;
+      min-height:0;
+      background:transparent;
+    }
+
+    /* ✅ imagen de fondo con transparencia */
+    #svgWrap::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      background-image: var(--treeBgUrl);
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      opacity: var(--treeBgOpacity);
+      pointer-events:none;   /* ✅ NO interfiere con zoom/click */
+      z-index:0;
+    }
+
     /* SVG */
-    #svgWrap{ position:relative; overflow:hidden; height:100%; min-width:0; min-height:0; }
     svg{
       width:100%;
       height:100%;
       display:block;
-      background:var(--card);
+      background:transparent; /* ✅ permite ver el fondo */
       border:1px solid #e2e8f0;
       border-radius:12px;
       box-shadow:0 1px 4px rgba(15,23,42,.06);
+      position:relative;
+      z-index:1;
     }
 
     .node rect{
@@ -509,16 +540,15 @@ let CURRENT_LEVELS_ACTIVE = [];
 /* =========================================================
    ✅ ANCHOS POR COLUMNA (Objetivo Estratégico + Impacto Esperado)
    ========================================================= */
-const BASE_NODE_WIDTH = 560;   // ancho normal
-const OBJ_NODE_WIDTH  = 860;   // ✅ Objetivo Estratégico (ajusta)
-const IMP_NODE_WIDTH  = 860;   // ✅ Impacto Esperado (ajusta)
-const COL_GAP = 240;           // separación entre columnas
+const BASE_NODE_WIDTH = 560;
+const OBJ_NODE_WIDTH  = 860;
+const IMP_NODE_WIDTH  = 860;
+const COL_GAP = 240;
 
-let COL_X = [];                // x acumulado por depth (columna)
-let WIDTH_BY_DEPTH = [];       // ancho por depth
+let COL_X = [];
+let WIDTH_BY_DEPTH = [];
 
 function getDepthOfLevelName(levelName){
-  // root=0, Nivel1=1, Nivel2=2, etc.
   const idx = CURRENT_LEVELS_ACTIVE.indexOf(levelName);
   return idx === -1 ? -1 : (idx + 1);
 }
@@ -528,7 +558,7 @@ function buildColumnMetrics(maxDepth){
   const impDepth = getDepthOfLevelName("Impacto Esperado");
 
   WIDTH_BY_DEPTH = Array.from({length: maxDepth + 1}, (_, d) => {
-    if(d === 0) return BASE_NODE_WIDTH; // root
+    if(d === 0) return BASE_NODE_WIDTH;
     if(d === objDepth) return OBJ_NODE_WIDTH;
     if(d === impDepth) return IMP_NODE_WIDTH;
     return BASE_NODE_WIDTH;
@@ -605,7 +635,6 @@ function positionColumnLabels(){
     const label = colLabelsEl.querySelector(`.colLabel[data-depth="${depth}"]`);
     if(!label) continue;
 
-    // ✅ centro real de la columna, según ancho por depth
     const colCenterLayoutX = COL_X[depth] + (nodeWidth(depth) / 2);
 
     const screenX = t.applyX(colCenterLayoutX);
@@ -729,9 +758,9 @@ function zoomToPath(pathNodesArr){
   let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
 
   for(const n of pathNodesArr){
-    const x = n._y ?? n.y;        // horizontal layout (columna)
-    const y = n._x ?? n.x;        // vertical layout
-    const w = nodeWidth(n);       // ✅ ancho real por nodo/columna
+    const x = n._y ?? n.y;
+    const y = n._x ?? n.x;
+    const w = nodeWidth(n);
     const h = (n.data._h || 160);
 
     minX = Math.min(minX, x);
@@ -806,11 +835,9 @@ function render(treeData){
   const treeLayout = d3.tree().nodeSize([rowGap, 1]);
   treeLayout(ROOT_HIER);
 
-  // ✅ construir métricas de columnas (anchos y x acumulado)
   const maxDepth = d3.max(ROOT_HIER.descendants(), d => d.depth) || 0;
   buildColumnMetrics(maxDepth);
 
-  // ✅ ubicar cada nodo en su columna real
   ROOT_HIER.descendants().forEach(d=>{
     d.y = COL_X[d.depth];
   });
@@ -860,7 +887,6 @@ function render(treeData){
     resetToBaseLayout();
   });
 
-  // ✅ rect con ancho variable según columna
   nodes.append("rect")
     .attr("x", 0)
     .attr("y", -60)
@@ -873,7 +899,6 @@ function render(treeData){
     .attr("y", 0)
     .text(d=>d.data.name);
 
-  // ✅ wrap por nodo según su ancho real
   title.each(function(d){
     const w = nodeWidth(d) - 36;
     wrapText(d3.select(this), w);
@@ -887,9 +912,6 @@ function render(treeData){
     const padY = 38;
     const h = bbox.height + padY * 2;
     d.data._h = h;
-
-    // (opcional) guardar ancho real por si lo necesitas luego
-    d.data._w = nodeWidth(d);
 
     node.select("rect")
       .attr("y", -(h/2))
@@ -961,3 +983,4 @@ window.addEventListener("resize", ()=>{
 </script>
 </body>
 </html>
+
