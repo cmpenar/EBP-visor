@@ -7,7 +7,13 @@
 
   <style>
     :root{
-      --bg:#f6f8fb; --card:#fff; --ink:#0f172a; --muted:#64748b; --line:#cbd5e1; --accent:#1d4ed8;
+      --bg:#f6f8fb;
+      --card:#fff;
+      --ink:#0f172a;
+      --muted:#64748b;
+      --line:#cbd5e1;
+      --accent:#1d4ed8;
+
       --labelFont: 12px;
       --sel:#0b2e4a; /* azul oscuro como header */
     }
@@ -21,7 +27,11 @@
       color:var(--ink);
     }
 
-    header{padding:14px 16px;background:linear-gradient(90deg,#0b2e4a,#0b3a68);color:#fff;}
+    header{
+      padding:14px 16px;
+      background:linear-gradient(90deg,#0b2e4a,#0b3a68);
+      color:#fff;
+    }
     header h1{margin:0;font-size:18px;font-weight:700}
     header p{margin:6px 0 0;font-size:12px;opacity:.9}
 
@@ -44,13 +54,42 @@
     .panel .inner{padding:12px;}
 
     label{display:block;font-size:12px;color:var(--muted);margin:10px 0 6px}
-    select,button{width:100%;padding:10px 10px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;font-size:13px}
-    button{cursor:pointer;background:#0ea5e9;color:#fff;border:0;font-weight:700}
+    select,button{
+      width:100%;
+      padding:10px 10px;
+      border-radius:10px;
+      border:1px solid #e2e8f0;
+      background:#fff;
+      font-size:13px
+    }
+    button{
+      cursor:pointer;
+      background:#0ea5e9;
+      color:#fff;
+      border:0;
+      font-weight:700
+    }
     button:hover{filter:brightness(.95)}
+
     .small{font-size:12px;color:var(--muted);line-height:1.35}
     .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-    .chip{font-size:11px;padding:4px 8px;border-radius:999px;background:#eef2ff;border:1px solid #e0e7ff;color:#3730a3}
-    .hint{margin-top:10px;padding:10px;border-radius:12px;background:#f1f5f9;border:1px dashed #cbd5e1;font-size:12px;color:#334155}
+    .chip{
+      font-size:11px;
+      padding:4px 8px;
+      border-radius:999px;
+      background:#eef2ff;
+      border:1px solid #e0e7ff;
+      color:#3730a3
+    }
+    .hint{
+      margin-top:10px;
+      padding:10px;
+      border-radius:12px;
+      background:#f1f5f9;
+      border:1px dashed #cbd5e1;
+      font-size:12px;
+      color:#334155
+    }
 
     #svgWrap{position:relative; overflow:hidden;}
     svg{
@@ -63,10 +102,27 @@
       box-shadow:0 1px 4px rgba(15,23,42,.06);
     }
 
-    .node rect{fill:#fff;stroke:#94a3b8;stroke-width:1.2;rx:10;ry:10}
-    .node .title{font-size:12px;fill:#0f172a;font-weight:650}
-    .link{fill:none;stroke:#94a3b8;stroke-width:1.2;opacity:.9}
-    .node:hover rect{stroke:var(--accent);stroke-width:2}
+    .node rect{
+      fill:#fff;
+      stroke:#94a3b8;
+      stroke-width:1.2;
+      rx:10; ry:10
+    }
+    .node .title{
+      font-size:12px;
+      fill:#0f172a;
+      font-weight:650;
+    }
+    .link{
+      fill:none;
+      stroke:#94a3b8;
+      stroke-width:1.2;
+      opacity:.9
+    }
+    .node:hover rect{
+      stroke:var(--accent);
+      stroke-width:2
+    }
 
     /* ✅ Selección azul oscuro + texto blanco */
     .node.selected rect,
@@ -89,6 +145,7 @@
       svg{height:75vh}
     }
 
+    /* etiquetas inferiores */
     .colLabels{
       position:absolute;
       left:0; right:0;
@@ -171,6 +228,9 @@
 
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 <script>
+/* =========================
+   Config
+========================= */
 const DEFAULT_LEVELS = ["Área Prioritaria","Objetivo Estratégico","Impacto Esperado","Operaciones vinculadas","Indicador"];
 const LABELS = [
   "Área Prioritaria","Objetivo Estratégico","Impacto Esperado","Operaciones vinculadas",
@@ -217,7 +277,7 @@ function buildTree(rows, levels){
   function getChild(parent, name){
     if(!parent.children) parent.children=[];
     let c = parent.children.find(x=>x.name===name);
-    if(!c){ c={name, children:[], _count:0, _rows:[]}; parent.children.push(c); }
+    if(!c){ c={name, children:[], _rows:[]}; parent.children.push(c); }
     return c;
   }
 
@@ -227,7 +287,6 @@ function buildTree(rows, levels){
       let v = (r[lvl] ?? "").toString().trim();
       if(!v) v="(Sin dato)";
       p=getChild(p, v);
-      p._count += 1;
       p._rows.push(r);
     });
   });
@@ -235,6 +294,9 @@ function buildTree(rows, levels){
   return root;
 }
 
+/* =========================
+   SVG + Zoom
+========================= */
 const svg = d3.select("#viz");
 let g = svg.append("g");
 
@@ -263,10 +325,12 @@ function renderColumnLabels(levels){
 function autoLiftLabels(){
   const labels = Array.from(colLabelsEl.querySelectorAll(".colLabel"))
     .filter(el => el.style.display !== "none");
+
   let maxH = 0;
   for(const el of labels){
     maxH = Math.max(maxH, el.getBoundingClientRect().height);
   }
+
   const safeBottom = 14;
   const lift = Math.ceil(maxH + safeBottom);
   colLabelsEl.style.bottom = `${lift}px`;
@@ -324,6 +388,9 @@ let zoom = d3.zoom()
 
 svg.call(zoom);
 
+/* =========================
+   Wrap texto (tspans)
+========================= */
 function wrapText(selection, width){
   selection.each(function(){
     const text = d3.select(this);
@@ -334,9 +401,9 @@ function wrapText(selection, width){
     let lineNumber = 0;
     const lineHeight = 1.25;
     const x = text.attr("x");
-    const y = text.attr("y");
 
-    let tspan = text.append("tspan").attr("x", x).attr("y", y).attr("dy", "0em");
+    // ✅ y siempre en 0 para estabilidad del bbox
+    let tspan = text.append("tspan").attr("x", x).attr("y", 0).attr("dy", "0em");
 
     for (let i=0; i<words.length; i++){
       line.push(words[i]);
@@ -347,7 +414,7 @@ function wrapText(selection, width){
         line = [words[i]];
         tspan = text.append("tspan")
           .attr("x", x)
-          .attr("y", y)
+          .attr("y", 0)
           .attr("dy", (++lineNumber * lineHeight) + "em")
           .text(words[i]);
       }
@@ -355,25 +422,25 @@ function wrapText(selection, width){
   });
 }
 
+/* =========================
+   Selección / Enfoque
+========================= */
 function clearSelection(){
   g.selectAll(".node").classed("selected", false).classed("path", false);
   g.selectAll(".link").classed("path", false);
 }
 
-/* ✅ Reencuadrar ruta completa (root -> nodo) */
+/* ✅ Enfocar ruta completa */
 function zoomToPath(pathNodesArr){
   if(!pathNodesArr || pathNodesArr.length === 0) return;
 
-  // Bounds de los rectángulos de esos nodos
   let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
 
   for(const n of pathNodesArr){
-    // posición del nodo (layout)
-    const x = n.y;
-    const y = n.x;
-
+    const x = n.y;          // layout X horizontal
+    const y = n.x;          // layout Y vertical
     const w = NODE_CARD_WIDTH;
-    const h = (n.data._h || 60); // guardamos h en render
+    const h = (n.data._h || 70);
 
     minX = Math.min(minX, x);
     maxX = Math.max(maxX, x + w);
@@ -387,8 +454,8 @@ function zoomToPath(pathNodesArr){
   const svgW = svg.node().clientWidth;
   const svgH = svg.node().clientHeight;
 
-  const pad = 80;
-  const scale = Math.min(2.3, Math.max(0.35,
+  const pad = 90;
+  const scale = Math.min(2.5, Math.max(0.35,
     0.92 / Math.max(boundsW / (svgW - pad), boundsH / (svgH - pad))
   ));
 
@@ -406,6 +473,9 @@ function zoomToPath(pathNodesArr){
   );
 }
 
+/* =========================
+   Render árbol
+========================= */
 function render(treeData){
   svg.selectAll("*").remove();
   g = svg.append("g");
@@ -433,6 +503,7 @@ function render(treeData){
       .y(d => d.x)
     );
 
+  // nodes
   const nodes = g.selectAll(".node")
     .data(ROOT_HIER.descendants())
     .join("g")
@@ -440,13 +511,12 @@ function render(treeData){
     .attr("transform", d => `translate(${d.y},${d.x})`)
     .on("click", (event,d)=>{
       event.stopPropagation();
-
       clearSelection();
 
       // marcar seleccionado
       d3.select(event.currentTarget).classed("selected", true);
 
-      // armar camino a raíz
+      // camino raíz -> seleccionado
       let cur = d;
       const pathNodes = [];
       const pathSet = new Set();
@@ -455,13 +525,12 @@ function render(treeData){
         pathSet.add(cur);
         cur = cur.parent;
       }
-      pathNodes.reverse(); // root -> seleccionado
+      pathNodes.reverse();
 
-      // aplicar clases camino
       g.selectAll(".node").classed("path", n => pathSet.has(n));
       g.selectAll(".link").classed("path", l => pathSet.has(l.target));
 
-      // ✅ reencuadrar para ver lineal la selección
+      // ✅ enfocar ruta completa
       zoomToPath(pathNodes);
 
       // detalle
@@ -478,10 +547,10 @@ function render(treeData){
           if(v) lines.push(`- ${k}: ${v}`);
         });
       }
-
       detail.textContent = lines.join("\n");
     });
 
+  // click fuera: limpiar selección
   svg.on("click", ()=>clearSelection());
 
   nodes.append("rect")
@@ -493,39 +562,33 @@ function render(treeData){
   const title = nodes.append("text")
     .attr("class","title")
     .attr("x", 12)
-    .attr("y", 0)      /* ✅ ahora lo ponemos “temporal” en 0 */
-    .attr("dy", 0)
+    .attr("y", 0)
     .text(d=>d.data.name);
 
   title.call(wrapText, textWrapWidth);
 
-  /* ✅ CENTRADO VERTICAL REAL:
-     calculamos líneas y movemos el texto para que el bloque quede centrado */
+  /* ✅ CENTRADO VERTICAL PERFECTO usando bbox real */
   nodes.each(function(d){
     const node = d3.select(this);
 
-    const tspans = node.selectAll("text.title tspan").nodes();
-    const lines = tspans.length || 1;
-    const linePx = 15;
-    const titleHeight = lines * linePx;
+    const textEl = node.select("text.title").node();
+    const bbox = textEl.getBBox();
 
-    const paddingTopBottom = 22; // aire
-    const h = titleHeight + paddingTopBottom;
+    const padY = 18;
+    const h = bbox.height + padY * 2;
 
-    // guardamos altura para zoomToPath
     d.data._h = h;
 
-    // rect centrado
     node.select("rect")
       .attr("y", -(h/2))
       .attr("height", h);
 
-    // el primer tspan está en y=0; lo movemos para centrar el bloque
-    const topOfTextBlock = -titleHeight/2 + (linePx * 0.8);
-    node.select("text.title")
-      .attr("y", topOfTextBlock);
+    const centerShiftY = - (bbox.y + bbox.height / 2);
 
-    // mover cada tspan con dy relativo ya está OK por wrapText
+    node.select("text.title")
+      .attr("x", 12)
+      .attr("y", 0)
+      .attr("transform", `translate(0, ${centerShiftY})`);
   });
 
   renderColumnLabels(CURRENT_LEVELS);
@@ -551,6 +614,9 @@ function render(treeData){
   setTimeout(positionColumnLabels, 450);
 }
 
+/* =========================
+   UI
+========================= */
 function getLevelsFromUI(){
   const levels = lvlSelects.map(s=>s.value);
   const used=new Set();
