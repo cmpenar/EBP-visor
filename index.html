@@ -21,7 +21,6 @@
       --nodeFontMin: 34px;
       --nodeFontMax: 52px;
 
-      /* ✅ color del encabezado (más cercano al azul del logo BID) */
       --headerA:#0a6a84;
       --headerB:#0b3a68;
     }
@@ -34,7 +33,6 @@
       color:var(--ink);
     }
 
-    /* ✅ Encabezado con fondo ajustado */
     header{
       position:relative;
       padding:22px 16px;
@@ -50,8 +48,6 @@
       text-align:center;
       width:100%;
     }
-
-    /* ✅ SIN rectángulo/borde; logo más grande (aprox al recuadro amarillo) */
     .logo{
       width:86px;
       height:86px;
@@ -326,7 +322,6 @@ const applyFiltersBtn = document.getElementById("applyFiltersBtn");
 const resetBtn = document.getElementById("resetBtn");
 
 const FILTER_ANY = "(Todos)";
-
 let ROWS_CACHE = null;
 
 function uniqSorted(arr){
@@ -336,7 +331,6 @@ function normalizeVal(v){
   const s = (v ?? "").toString().trim();
   return s ? s : "(Sin dato)";
 }
-
 function setOptionsPreserveValue(selectEl, values){
   const prev = selectEl.value || FILTER_ANY;
   const opts = [FILTER_ANY, ...values];
@@ -348,10 +342,8 @@ function setOptionsPreserveValue(selectEl, values){
     o.textContent = v;
     selectEl.appendChild(o);
   }
-
   selectEl.value = opts.includes(prev) ? prev : FILTER_ANY;
 }
-
 function filterRowsByCriteria(rows, crit){
   return rows.filter(r=>{
     const vOp = normalizeVal(r["Operaciones vinculadas"]);
@@ -364,8 +356,6 @@ function filterRowsByCriteria(rows, crit){
     return true;
   });
 }
-
-/* ✅ Mutua exclusión: recalcula opciones basadas en selecciones actuales */
 function refreshFilterOptions(){
   if(!ROWS_CACHE) return;
 
@@ -378,23 +368,19 @@ function refreshFilterOptions(){
   const rowsForOp = filterRowsByCriteria(ROWS_CACHE, { area: current.area, obj: current.obj });
   const ops = uniqSorted(rowsForOp.map(r=>normalizeVal(r["Operaciones vinculadas"])));
   setOptionsPreserveValue(fOperacion, ops);
-  current.op = fOperacion.value || FILTER_ANY;
 
-  const rowsForArea = filterRowsByCriteria(ROWS_CACHE, { op: current.op, obj: current.obj });
+  const rowsForArea = filterRowsByCriteria(ROWS_CACHE, { op: fOperacion.value || FILTER_ANY, obj: current.obj });
   const areas = uniqSorted(rowsForArea.map(r=>normalizeVal(r["Área Prioritaria"])));
   setOptionsPreserveValue(fArea, areas);
-  current.area = fArea.value || FILTER_ANY;
 
-  const rowsForObj = filterRowsByCriteria(ROWS_CACHE, { op: current.op, area: current.area });
+  const rowsForObj = filterRowsByCriteria(ROWS_CACHE, { op: fOperacion.value || FILTER_ANY, area: fArea.value || FILTER_ANY });
   const objs = uniqSorted(rowsForObj.map(r=>normalizeVal(r["Objetivo Estratégico"])));
   setOptionsPreserveValue(fObjetivo, objs);
 }
-
 function applyRowFilters(rows){
   const op = fOperacion.value || FILTER_ANY;
   const ar = fArea.value || FILTER_ANY;
   const ob = fObjetivo.value || FILTER_ANY;
-
   return filterRowsByCriteria(rows, { op, area: ar, obj: ob });
 }
 
@@ -437,7 +423,7 @@ function buildTree(rows, levelsActive){
 }
 
 /* =========================
-   D3 RENDER (NODOS AUTO-ANCHO)
+   D3 RENDER (compactar espacios + mejor fit)
 ========================= */
 const svgWrapEl = document.getElementById("svgWrap");
 const colLabelsEl = document.getElementById("colLabels");
@@ -453,8 +439,10 @@ const PAD_X = 26;
 const PAD_Y = 30;
 const MIN_W = 520;
 const MAX_W = 980;
-const COL_GAP = 220;
-const ROW_GAP = 320;
+
+/* ✅ MÁS COMPACTO (reduce huecos amarillos) */
+const COL_GAP = 140;     // antes 220
+const ROW_GAP = 220;     // antes ~320
 
 let COL_WIDTHS = [];
 let COL_OFFSETS = [];
@@ -644,47 +632,6 @@ function resetToBaseLayout(){
     .transition().duration(380)
     .attr("d", linkPathBase);
 }
-function zoomToPath(pathNodesArr){
-  if(!pathNodesArr || pathNodesArr.length === 0) return;
-
-  let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
-
-  for(const n of pathNodesArr){
-    const x = n._y ?? n.y;
-    const y = n._x ?? n.x;
-    const w = n._w || (COL_WIDTHS[n.depth] || MIN_W);
-    const h = (n.data._h || 180);
-
-    minX = Math.min(minX, x);
-    maxX = Math.max(maxX, x + w);
-    minY = Math.min(minY, y - h/2);
-    maxY = Math.max(maxY, y + h/2);
-  }
-
-  const boundsW = maxX - minX;
-  const boundsH = maxY - minY;
-
-  const svgW = svg.node().clientWidth;
-  const svgH = svg.node().clientHeight;
-
-  const pad = 240;
-  const scale = Math.min(3.0, Math.max(0.45,
-    0.95 / Math.max(boundsW / (svgW - pad), boundsH / (svgH - pad))
-  ));
-
-  const midX = minX + boundsW/2;
-  const midY = minY + boundsH/2;
-
-  const translate = [
-    svgW/2 - scale * midX,
-    svgH/2 - scale * midY
-  ];
-
-  svg.transition().duration(650).call(
-    zoom.transform,
-    d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale)
-  );
-}
 
 function render(treeData){
   svg.selectAll("*").remove();
@@ -692,7 +639,12 @@ function render(treeData){
   svg.call(zoom);
 
   ROOT_HIER = d3.hierarchy(treeData);
-  d3.tree().nodeSize([320, 1])(ROOT_HIER);
+
+  /* ✅ Compacta “huecos amarillos” entre hermanos */
+  d3.tree()
+    .nodeSize([ROW_GAP, 1])
+    .separation((a,b)=> (a.parent === b.parent ? 0.75 : 0.9))
+    (ROOT_HIER);
 
   const nodesG = g.selectAll(".node")
     .data(ROOT_HIER.descendants())
@@ -775,11 +727,11 @@ function render(treeData){
     d3.select(event.currentTarget).classed("selected", true);
 
     let cur = d;
-    const pathNodes = [];
     const pathSet = new Set();
+    const pathNodes = [];
     while(cur){
-      pathNodes.push(cur);
       pathSet.add(cur);
+      pathNodes.push(cur);
       cur = cur.parent;
     }
     pathNodes.reverse();
@@ -798,35 +750,90 @@ function render(treeData){
 
   renderColumnLabels(CURRENT_LEVELS_ACTIVE);
 
-  fitToView();
-  function fitToView(){
-    const bounds = g.node().getBBox();
-    if (bounds.width === 0 || bounds.height === 0) return;
-
-    const svgW = svg.node().clientWidth;
-    const svgH = svg.node().clientHeight;
-
-    const midX = bounds.x + bounds.width / 2;
-    const midY = bounds.y + bounds.height / 2;
-
-    const scale = 0.9 / Math.max(bounds.width / svgW, bounds.height / svgH);
-    const translate = [svgW / 2 - scale * midX, svgH / 2 - scale * midY];
-
-    svg.transition().duration(400).call(
-      zoom.transform,
-      d3.zoomIdentity.translate(translate[0], translate[1]).scale(Math.min(scale, 1.15))
-    ).on("end", ()=>{
-      positionColumnLabels();
-    });
-  }
-
-  BASE_POS = new Map();
-  ROOT_HIER.descendants().forEach(n=>{
-    BASE_POS.set(n, {x:n.x, y:n.y});
-  });
-
+  fitToView();            // ✅ nuevo fit que usa mejor el área naranja
   setTimeout(positionColumnLabels, 450);
   setNodeFontByZoom(d3.zoomTransform(svg.node()).k);
+
+  BASE_POS = new Map();
+  ROOT_HIER.descendants().forEach(n=> BASE_POS.set(n, {x:n.x, y:n.y}));
+}
+
+function zoomToPath(pathNodesArr){
+  if(!pathNodesArr || pathNodesArr.length === 0) return;
+
+  let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+
+  for(const n of pathNodesArr){
+    const x = n._y ?? n.y;
+    const y = n._x ?? n.x;
+    const w = n._w || (COL_WIDTHS[n.depth] || MIN_W);
+    const h = (n.data._h || 180);
+
+    minX = Math.min(minX, x);
+    maxX = Math.max(maxX, x + w);
+    minY = Math.min(minY, y - h/2);
+    maxY = Math.max(maxY, y + h/2);
+  }
+
+  const boundsW = maxX - minX;
+  const boundsH = maxY - minY;
+
+  const svgW = svg.node().clientWidth;
+  const svgH = svg.node().clientHeight;
+
+  const pad = 220;
+  const scale = Math.min(3.0, Math.max(0.55,
+    0.95 / Math.max(boundsW / (svgW - pad), boundsH / (svgH - pad))
+  ));
+
+  const midX = minX + boundsW/2;
+  const midY = minY + boundsH/2;
+
+  const translate = [
+    svgW/2 - scale * midX,
+    svgH/2 - scale * midY
+  ];
+
+  svg.transition().duration(650).call(
+    zoom.transform,
+    d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale)
+  );
+}
+
+/* ✅ FIT NUEVO: usa mejor el área naranja y NO centra tanto */
+function fitToView(){
+  const bounds = g.node().getBBox();
+  if (bounds.width === 0 || bounds.height === 0) return;
+
+  const svgW = svg.node().clientWidth;
+  const svgH = svg.node().clientHeight;
+
+  // padding “real” para que no pegue a los bordes
+  const padLeft = 60;
+  const padRight = 60;
+  const padTop = 40;
+  const padBottom = 140;
+
+  const availW = Math.max(1, svgW - padLeft - padRight);
+  const availH = Math.max(1, svgH - padTop - padBottom);
+
+  let scaleW = availW / bounds.width;
+  let scaleH = availH / bounds.height;
+
+  // prioriza llenar el ancho (mejor uso del área naranja), pero respetando alto
+  let scale = Math.min(scaleW, scaleH) * 0.98;
+
+  // permite que “agrande” más (antes se quedaba muy pequeño/centrado)
+  scale = Math.min(Math.max(scale, 0.75), 1.8);
+
+  // alinear a la izquierda + centrar verticalmente dentro del alto disponible
+  const tx = padLeft - scale * bounds.x;
+  const ty = padTop + (availH - scale * bounds.height)/2 - scale * bounds.y;
+
+  svg.transition().duration(420).call(
+    zoom.transform,
+    d3.zoomIdentity.translate(tx, ty).scale(scale)
+  ).on("end", ()=> positionColumnLabels());
 }
 
 /* =========================
