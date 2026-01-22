@@ -346,23 +346,17 @@ function positionColumnLabels(){
   const wrapRect = svgWrapEl.getBoundingClientRect();
   const svgOffsetX = svgRect.left - wrapRect.left;
 
-  const margin = 60;
+  const margin = 40;
   const visibleMinX = margin;
   const visibleMaxX = wrapRect.width - margin;
 
+  // con columnas fijas, el centro depende SOLO del nivel:
   for(let depth=1; depth<=5; depth++){
     const label = colLabelsEl.querySelector(`.colLabel[data-depth="${depth}"]`);
     if(!label) continue;
 
-    const nodesAtDepth = ROOT_HIER.descendants().filter(d=>d.depth === depth);
-    if(nodesAtDepth.length === 0){
-      label.style.display = "none";
-      continue;
-    }
-
-    const ys = nodesAtDepth.map(d=>d.y).sort((a,b)=>a-b);
-    const yMed = ys[Math.floor(ys.length/2)];
-    const colCenterLayoutX = yMed + (NODE_CARD_WIDTH / 2);
+    // centro de la columna: depth * step + width/2
+    const colCenterLayoutX = (depth * COL_STEP_X) + (NODE_CARD_WIDTH / 2);
 
     const screenX = t.applyX(colCenterLayoutX);
     const leftPx = svgOffsetX + screenX;
@@ -402,7 +396,6 @@ function wrapText(selection, width){
     const lineHeight = 1.25;
     const x = text.attr("x");
 
-    // ✅ y siempre en 0 para estabilidad del bbox
     let tspan = text.append("tspan").attr("x", x).attr("y", 0).attr("dy", "0em");
 
     for (let i=0; i<words.length; i++){
@@ -430,14 +423,14 @@ function clearSelection(){
   g.selectAll(".link").classed("path", false);
 }
 
-/* ✅ Enfocar ruta completa */
+/* ✅ Enfocar ruta completa (root -> nodo) */
 function zoomToPath(pathNodesArr){
   if(!pathNodesArr || pathNodesArr.length === 0) return;
 
   let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
 
   for(const n of pathNodesArr){
-    const x = n.y;          // layout X horizontal
+    const x = n.y;          // layout X horizontal (columna)
     const y = n.x;          // layout Y vertical
     const w = NODE_CARD_WIDTH;
     const h = (n.data._h || 70);
@@ -474,7 +467,12 @@ function zoomToPath(pathNodesArr){
 }
 
 /* =========================
-   Render árbol
+   Columnas fijas por nivel
+========================= */
+let COL_STEP_X = 360; // se recalcula en render()
+
+/* =========================
+   Render
 ========================= */
 function render(treeData){
   svg.selectAll("*").remove();
@@ -488,12 +486,24 @@ function render(treeData){
 
   const nodeCardWidth = 260;
   NODE_CARD_WIDTH = nodeCardWidth;
+
+  // ✅ tamaño de columna fijo: ancho del nodo + gap
+  const colGap = 110;
+  COL_STEP_X = nodeCardWidth + colGap;
+
   const textWrapWidth = nodeCardWidth - 22;
 
-  const treeLayout = d3.tree().nodeSize([90, nodeCardWidth + 90]);
+  // Layout vertical con d3.tree (solo calcula x); luego fijamos y por nivel
+  const rowGap = 115; // separación vertical entre nodos
+  const treeLayout = d3.tree().nodeSize([rowGap, 1]); // y no importa aquí
   treeLayout(ROOT_HIER);
 
-  // links
+  // ✅ Forzar columnas fijas: y = depth * COL_STEP_X
+  ROOT_HIER.descendants().forEach(d=>{
+    d.y = d.depth * COL_STEP_X;
+  });
+
+  // links (con columnas fijas)
   g.selectAll(".link")
     .data(ROOT_HIER.links())
     .join("path")
@@ -513,7 +523,6 @@ function render(treeData){
       event.stopPropagation();
       clearSelection();
 
-      // marcar seleccionado
       d3.select(event.currentTarget).classed("selected", true);
 
       // camino raíz -> seleccionado
@@ -530,14 +539,12 @@ function render(treeData){
       g.selectAll(".node").classed("path", n => pathSet.has(n));
       g.selectAll(".link").classed("path", l => pathSet.has(l.target));
 
-      // ✅ enfocar ruta completa
       zoomToPath(pathNodes);
 
       // detalle
       const sample = (d.data._rows && d.data._rows[0]) ? d.data._rows[0] : null;
       const lines = [];
       lines.push(`Nodo: ${d.data.name}`);
-
       if(sample){
         lines.push("");
         lines.push("Ejemplo de fila asociada:");
@@ -550,7 +557,6 @@ function render(treeData){
       detail.textContent = lines.join("\n");
     });
 
-  // click fuera: limpiar selección
   svg.on("click", ()=>clearSelection());
 
   nodes.append("rect")
@@ -567,7 +573,7 @@ function render(treeData){
 
   title.call(wrapText, textWrapWidth);
 
-  /* ✅ CENTRADO VERTICAL PERFECTO usando bbox real */
+  // ✅ Centrado vertical perfecto por bbox real
   nodes.each(function(d){
     const node = d3.select(this);
 
@@ -576,7 +582,6 @@ function render(treeData){
 
     const padY = 18;
     const h = bbox.height + padY * 2;
-
     d.data._h = h;
 
     node.select("rect")
@@ -593,7 +598,7 @@ function render(treeData){
 
   renderColumnLabels(CURRENT_LEVELS);
 
-  // fit inicial
+  // Fit inicial
   fitToView();
   function fitToView(){
     const bounds = g.node().getBBox();
@@ -605,13 +610,13 @@ function render(treeData){
     const scale = 0.95 / Math.max(bounds.width / width, bounds.height / height);
     const translate = [width / 2 - scale * midX, height / 2 - scale * midY];
 
-    svg.transition().duration(400).call(
+    svg.transition().duration(450).call(
       zoom.transform,
       d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale)
     ).on("end", ()=>positionColumnLabels());
   }
 
-  setTimeout(positionColumnLabels, 450);
+  setTimeout(positionColumnLabels, 480);
 }
 
 /* =========================
