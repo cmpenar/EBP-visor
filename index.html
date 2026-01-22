@@ -16,6 +16,9 @@
 
       --labelFont: 12px;
       --sel:#0b2e4a; /* azul oscuro como header */
+
+      /* ✅ texto más grande */
+      --nodeFont: 14px;
     }
 
     html, body { height: 100%; overflow: hidden; }
@@ -109,7 +112,7 @@
       rx:10; ry:10
     }
     .node .title{
-      font-size:12px;
+      font-size:var(--nodeFont);
       fill:#0f172a;
       font-weight:650;
     }
@@ -232,11 +235,9 @@
    Config
 ========================= */
 const NONE = "(Ninguno)";
-
-// ✅ Default solicitado
 const DEFAULT_LEVELS = ["Área Prioritaria","Objetivo Estratégico","Impacto Esperado", NONE, NONE];
 
-// ✅ Opciones permitidas (sin Año ni Fuente)
+// opciones (sin Año ni Fuente)
 const LABELS_ALLOWED = [
   "Área Prioritaria",
   "Objetivo Estratégico",
@@ -245,7 +246,6 @@ const LABELS_ALLOWED = [
   "Cooperaciones técnicas vinculadas",
   "Indicador"
 ];
-
 const LEVEL_OPTIONS = [NONE, ...LABELS_ALLOWED];
 
 const lvlSelects = ["lvl1","lvl2","lvl3","lvl4","lvl5"].map(id=>document.getElementById(id));
@@ -263,7 +263,6 @@ function fillSelect(select, options, selected){
     select.appendChild(o);
   });
 }
-
 function updateChips(levelsActive){
   orderChips.innerHTML="";
   if(levelsActive.length === 0){
@@ -281,7 +280,6 @@ function updateChips(levelsActive){
   });
 }
 
-// Inicializar selects
 lvlSelects.forEach((sel,i)=>fillSelect(sel, LEVEL_OPTIONS, DEFAULT_LEVELS[i] || NONE));
 
 async function loadRows(){
@@ -290,9 +288,6 @@ async function loadRows(){
   return data.rows;
 }
 
-/* =========================
-   Tree build (ignora NONE)
-========================= */
 function buildTree(rows, levelsActive){
   const root = {name:"EBP Costa Rica 2024-2027", children:[]};
 
@@ -306,7 +301,6 @@ function buildTree(rows, levelsActive){
   rows.forEach(r=>{
     let p=root;
 
-    // si no hay niveles activos, solo queda la raíz
     if(levelsActive.length === 0){
       root._rows = root._rows || [];
       root._rows.push(r);
@@ -331,11 +325,13 @@ const svg = d3.select("#viz");
 let g = svg.append("g");
 
 let ROOT_HIER = null;
-let CURRENT_LEVELS_UI = [...DEFAULT_LEVELS];   // incluyendo NONE
-let CURRENT_LEVELS_ACTIVE = [];                // solo activos (sin NONE)
+let CURRENT_LEVELS_ACTIVE = [];
 let NODE_CARD_WIDTH = 260;
 
 let COL_STEP_X = 360;
+
+// guardamos layout base para poder volver
+let BASE_POS = new Map(); // nodeId -> {x,y}
 
 function setLabelFontByZoom(k){
   const base = 12;
@@ -409,7 +405,6 @@ let zoom = d3.zoom()
     g.attr("transform", event.transform);
     positionColumnLabels();
   });
-
 svg.call(zoom);
 
 /* =========================
@@ -446,13 +441,14 @@ function wrapText(selection, width){
 }
 
 /* =========================
-   Selección / Enfoque
+   Helpers selección
 ========================= */
 function clearSelection(){
   g.selectAll(".node").classed("selected", false).classed("path", false);
   g.selectAll(".link").classed("path", false);
 }
 
+/* Zoom a ruta */
 function zoomToPath(pathNodesArr){
   if(!pathNodesArr || pathNodesArr.length === 0) return;
 
@@ -495,6 +491,117 @@ function zoomToPath(pathNodesArr){
   );
 }
 
+/* ✅ Focus layout: alinear ruta seleccionada en una sola línea */
+function applyFocusLayout(selectedNode){
+  if(!selectedNode) return;
+
+  // recuperar camino raíz -> seleccionado
+  let cur = selectedNode;
+  const path = [];
+  const pathSet = new Set();
+  while(cur){
+    path.push(cur);
+    pathSet.add(cur);
+    cur = cur.parent;
+  }
+  path.reverse();
+
+  // referencia: y del root
+  const root = path[0];
+  const rootY = root.x;
+
+  // Para mantener la “línea”, hacemos que cada nodo del camino tenga el mismo x (vertical)
+  // y desplazamos subárboles cerca de su padre para que no estorben tanto.
+  // Guardamos BASE_POS para poder resetear después.
+
+  // distancia vertical entre niveles en modo focus
+  const focusRowGap = 0; // misma línea exacta
+  const sideGap = 140;   // ramas laterales separadas
+
+  // asignar nuevas x a ruta
+  path.forEach((n, i)=>{
+    n._focusX = rootY + focusRowGap; // misma línea
+    n._focusY = n.y;                 // columnas iguales
+  });
+
+  // desplazar descendientes de cada nodo del camino (excepto el hijo que está en el camino)
+  for(let i=0;i<path.length;i++){
+    const node = path[i];
+    const nextOnPath = (i < path.length-1) ? path[i+1] : null;
+
+    if(!node.children) continue;
+
+    const sideKids = node.children.filter(ch => ch !== nextOnPath);
+    if(sideKids.length === 0) continue;
+
+    sideKids.forEach((kid, idx)=>{
+      // mover subárbol hacia arriba/abajo alternando
+      const dir = (idx % 2 === 0) ? 1 : -1;
+      const band = Math.ceil((idx+1)/2);
+
+      kid._focusX = node._focusX + dir * band * sideGap;
+      kid._focusY = kid.y;
+
+      // propagar al subárbol manteniendo estructura relativa (desde base)
+      propagateSubtree(kid, kid._focusX);
+    });
+  }
+
+  // para nodos fuera del camino y no tocados, usar base
+  ROOT_HIER.descendants().forEach(n=>{
+    if(n._focusX == null){
+      n._focusX = n.x;
+      n._focusY = n.y;
+    }
+  });
+
+  // aplicar transición visual
+  g.selectAll(".node")
+    .transition().duration(520)
+    .attr("transform", d => `translate(${d._focusY},${d._focusX})`);
+
+  g.selectAll(".link")
+    .transition().duration(520)
+    .attr("d", d3.linkHorizontal()
+      .x(d => d._focusY)
+      .y(d => d._focusX)
+    );
+
+  // zoom a la ruta en modo focus
+  zoomToPath(path.map(n => ({...n, x:n._focusX, y:n._focusY, data:n.data})));
+}
+
+function propagateSubtree(node, newRootX){
+  // desplazamiento respecto a posición base
+  const base = BASE_POS.get(node);
+  if(!base) return;
+
+  const dx = newRootX - base.x;
+
+  node.each(n=>{
+    const b = BASE_POS.get(n);
+    if(!b) return;
+    n._focusX = b.x + dx;
+    n._focusY = b.y;
+  });
+}
+
+/* reset layout */
+function resetToBaseLayout(){
+  ROOT_HIER.descendants().forEach(n=>{
+    n._focusX = null;
+    n._focusY = null;
+  });
+
+  g.selectAll(".node")
+    .transition().duration(380)
+    .attr("transform", d => `translate(${d.y},${d.x})`);
+
+  g.selectAll(".link")
+    .transition().duration(380)
+    .attr("d", d3.linkHorizontal().x(d=>d.y).y(d=>d.x));
+}
+
 /* =========================
    Render (columnas fijas)
 ========================= */
@@ -508,7 +615,7 @@ function render(treeData){
 
   ROOT_HIER = d3.hierarchy(treeData);
 
-  const nodeCardWidth = 260;
+  const nodeCardWidth = 280; // un poco más ancho por letra más grande
   NODE_CARD_WIDTH = nodeCardWidth;
 
   const colGap = 110;
@@ -517,23 +624,26 @@ function render(treeData){
   const textWrapWidth = nodeCardWidth - 22;
 
   // Layout vertical base
-  const rowGap = 115;
+  const rowGap = 130;
   const treeLayout = d3.tree().nodeSize([rowGap, 1]);
   treeLayout(ROOT_HIER);
 
-  // Columnas fijas por nivel (solo niveles activos)
+  // Columnas fijas por nivel
   ROOT_HIER.descendants().forEach(d=>{
     d.y = d.depth * COL_STEP_X;
+  });
+
+  // Guardar base positions (para reset y focus)
+  BASE_POS = new Map();
+  ROOT_HIER.descendants().forEach(n=>{
+    BASE_POS.set(n, {x:n.x, y:n.y});
   });
 
   g.selectAll(".link")
     .data(ROOT_HIER.links())
     .join("path")
     .attr("class","link")
-    .attr("d", d3.linkHorizontal()
-      .x(d => d.y)
-      .y(d => d.x)
-    );
+    .attr("d", d3.linkHorizontal().x(d => d.y).y(d => d.x));
 
   const nodes = g.selectAll(".node")
     .data(ROOT_HIER.descendants())
@@ -542,8 +652,8 @@ function render(treeData){
     .attr("transform", d => `translate(${d.y},${d.x})`)
     .on("click", (event,d)=>{
       event.stopPropagation();
-      clearSelection();
 
+      clearSelection();
       d3.select(event.currentTarget).classed("selected", true);
 
       let cur = d;
@@ -559,7 +669,8 @@ function render(treeData){
       g.selectAll(".node").classed("path", n => pathSet.has(n));
       g.selectAll(".link").classed("path", l => pathSet.has(l.target));
 
-      zoomToPath(pathNodes);
+      // ✅ aplicar “focus line layout”
+      applyFocusLayout(d);
 
       const sample = (d.data._rows && d.data._rows[0]) ? d.data._rows[0] : null;
       const lines = [];
@@ -576,7 +687,11 @@ function render(treeData){
       detail.textContent = lines.join("\n");
     });
 
-  svg.on("click", ()=>clearSelection());
+  // click fondo: vuelve a layout normal
+  svg.on("click", ()=>{
+    clearSelection();
+    resetToBaseLayout();
+  });
 
   nodes.append("rect")
     .attr("x", 0)
@@ -595,7 +710,6 @@ function render(treeData){
   // Centrado vertical perfecto por bbox real
   nodes.each(function(d){
     const node = d3.select(this);
-
     const textEl = node.select("text.title").node();
     const bbox = textEl.getBBox();
 
@@ -639,16 +753,11 @@ function render(treeData){
 }
 
 /* =========================
-   UI: obtener niveles
+   UI niveles
 ========================= */
 function getLevelsFromUI(){
-  // niveles tal cual UI
   const levelsUI = lvlSelects.map(s=>s.value);
 
-  // activos (sin NONE) manteniendo orden
-  const active = levelsUI.filter(x => x !== NONE);
-
-  // evitar duplicados en activos (si se repite, se reemplaza por NONE)
   const used = new Set();
   for(let i=0;i<levelsUI.length;i++){
     const v = levelsUI[i];
@@ -661,10 +770,10 @@ function getLevelsFromUI(){
     }
   }
 
-  const active2 = levelsUI.filter(x => x !== NONE);
-  updateChips(active2);
+  const active = levelsUI.filter(x => x !== NONE);
+  updateChips(active);
 
-  return { levelsUI, levelsActive: active2 };
+  return { levelsUI, levelsActive: active };
 }
 
 let ROWS_CACHE=null;
@@ -672,8 +781,7 @@ let ROWS_CACHE=null;
 async function main(){
   ROWS_CACHE = await loadRows();
 
-  const {levelsUI, levelsActive} = getLevelsFromUI();
-  CURRENT_LEVELS_UI = levelsUI;
+  const {levelsActive} = getLevelsFromUI();
   CURRENT_LEVELS_ACTIVE = levelsActive;
 
   const tree = buildTree(ROWS_CACHE, CURRENT_LEVELS_ACTIVE);
@@ -682,8 +790,7 @@ async function main(){
 main();
 
 document.getElementById("renderBtn").onclick = ()=>{
-  const {levelsUI, levelsActive} = getLevelsFromUI();
-  CURRENT_LEVELS_UI = levelsUI;
+  const {levelsActive} = getLevelsFromUI();
   CURRENT_LEVELS_ACTIVE = levelsActive;
 
   const tree = buildTree(ROWS_CACHE, CURRENT_LEVELS_ACTIVE);
