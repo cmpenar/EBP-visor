@@ -505,10 +505,45 @@ let g = svg.append("g");
 
 let ROOT_HIER = null;
 let CURRENT_LEVELS_ACTIVE = [];
-let NODE_CARD_WIDTH = 560;
-let COL_STEP_X = 780;
+
+/* ✅ ANCHOS POR COLUMNA (Objetivo Estratégico + Impacto Esperado más anchos) */
+const BASE_NODE_WIDTH = 560;   // ancho normal
+const WIDE_NODE_WIDTH = 820;   // ancho para Objetivo e Impacto (ajusta si quieres)
+const COL_GAP = 240;           // separación entre columnas
+
+let COL_X = [];                // x acumulado por depth
+let WIDTH_BY_DEPTH = [];       // ancho por depth
 
 let BASE_POS = new Map();
+
+function getWideDepths(){
+  // root=0, Nivel1=1, Nivel2=2...
+  const wideNames = new Set(["Objetivo Estratégico","Impacto Esperado"]);
+  const depths = new Set();
+  CURRENT_LEVELS_ACTIVE.forEach((name, idx)=>{
+    if(wideNames.has(name)) depths.add(idx + 1);
+  });
+  return depths;
+}
+
+function buildColumnMetrics(maxDepth){
+  const wideDepths = getWideDepths();
+
+  WIDTH_BY_DEPTH = Array.from({length: maxDepth + 1}, (_, d) => {
+    if(d === 0) return BASE_NODE_WIDTH; // root
+    return wideDepths.has(d) ? WIDE_NODE_WIDTH : BASE_NODE_WIDTH;
+  });
+
+  COL_X = Array.from({length: maxDepth + 1}, () => 0);
+  for(let d=1; d<=maxDepth; d++){
+    COL_X[d] = COL_X[d-1] + WIDTH_BY_DEPTH[d-1] + COL_GAP;
+  }
+}
+
+function nodeWidth(d){
+  const depth = (typeof d === "number") ? d : d.depth;
+  return WIDTH_BY_DEPTH[depth] ?? BASE_NODE_WIDTH;
+}
 
 function setNodeFontByZoom(k){
   const base = 30;
@@ -566,7 +601,8 @@ function positionColumnLabels(){
     const label = colLabelsEl.querySelector(`.colLabel[data-depth="${depth}"]`);
     if(!label) continue;
 
-    const colCenterLayoutX = (depth * COL_STEP_X) + (NODE_CARD_WIDTH / 2);
+    // ✅ centro de la columna real: COL_X[depth] + (ancho/2)
+    const colCenterLayoutX = COL_X[depth] + (nodeWidth(depth) / 2);
     const screenX = t.applyX(colCenterLayoutX);
     const leftPx = svgOffsetX + screenX;
 
@@ -690,7 +726,7 @@ function zoomToPath(pathNodesArr){
   for(const n of pathNodesArr){
     const x = n._y ?? n.y;
     const y = n._x ?? n.x;
-    const w = NODE_CARD_WIDTH;
+    const w = nodeWidth(n);                 // ✅ ancho real por nodo/columna
     const h = (n.data._h || 160);
 
     minX = Math.min(minX, x);
