@@ -17,12 +17,10 @@
       --labelFont: 14px;
       --sel:#0b2e4a;
 
-      /* Texto grande y legible */
       --nodeFont: 30px;
       --nodeFontMin: 24px;
       --nodeFontMax: 44px;
 
-      /* Caja ejes */
       --soft:#f1f5f9;
       --softBorder:#cbd5e1;
     }
@@ -35,7 +33,7 @@
       color:var(--ink);
     }
 
-    /* Header: altura ~ la del logo (sin “rojo” extra) */
+    /* Header compacto */
     header{
       padding:14px 16px;
       background:linear-gradient(180deg,#0b6a7d 0%, #0b3a68 100%);
@@ -61,12 +59,7 @@
       align-items:center;
       justify-content:center;
     }
-    .logo img{
-      width:100%;
-      height:100%;
-      object-fit:contain;
-      display:block;
-    }
+    .logo img{ width:100%; height:100%; object-fit:contain; display:block; }
     header h1{
       margin:0;
       font-size:52px;
@@ -74,11 +67,7 @@
       font-weight:950;
       letter-spacing:.2px;
     }
-    header p{
-      margin:8px 0 0;
-      font-size:16px;
-      opacity:.92
-    }
+    header p{ margin:8px 0 0; font-size:16px; opacity:.92 }
 
     .wrap{
       display:grid;
@@ -146,11 +135,62 @@
       font-size:14px;
       font-weight:900;
     }
-    .btnSecondary{
-      background:#0b2e4a;
+    .btnSecondary{ background:#0b2e4a; }
+
+    /* ✅ Columna derecha ahora es 2 columnas: (Ejes | Árbol) */
+    #right{
+      display:grid;
+      grid-template-columns: 280px 1fr; /* ✅ ejes más angosto */
+      gap:12px;
+      height:100%;
+      min-width:0;
     }
 
-    #svgWrap{position:relative; overflow:hidden;}
+    /* ✅ Ejes transversales: NO encima del SVG; vive en su columna */
+    .axesBox{
+      height:100%;
+      background:var(--soft);
+      border:1px dashed var(--softBorder);
+      border-radius:12px;
+      padding:12px;
+      box-shadow:0 1px 4px rgba(15,23,42,.06);
+      overflow:auto;
+    }
+    .axesTitle{
+      margin:0 0 10px 0;
+      font-size:14px;
+      font-weight:950;
+      color:#0f172a;
+    }
+    .axesChips{
+      display:flex;
+      gap:10px;
+      flex-direction:column;
+    }
+    .axesChip{
+      display:block;
+      padding:10px 12px;
+      border-radius:999px;
+      background:#eef2ff;
+      border:1px solid #e0e7ff;
+      color:#3730a3;
+
+      /* ✅ sin negrita */
+      font-weight:500;
+
+      font-size:14px;
+      line-height:1.15;
+      text-align:center;
+
+      /* ✅ permitir varias líneas y que sea angosto */
+      white-space:normal;
+      word-break:break-word;
+      overflow-wrap:anywhere;
+      user-select:none;
+    }
+
+    /* SVG */
+    #svgWrap{ position:relative; overflow:hidden; height:100%; min-width:0; }
     svg{
       width:100%;
       height:100%;
@@ -172,31 +212,14 @@
       fill:#0f172a;
       font-weight:900;
     }
-    .link{
-      fill:none;
-      stroke:#94a3b8;
-      stroke-width:1.2;
-      opacity:.85
-    }
-    .node:hover rect{
-      stroke:var(--accent);
-      stroke-width:2
-    }
+    .link{ fill:none; stroke:#94a3b8; stroke-width:1.2; opacity:.85 }
+    .node:hover rect{ stroke:var(--accent); stroke-width:2 }
 
     .node.selected rect,
-    .node.path rect{
-      fill:var(--sel);
-      stroke:var(--sel);
-    }
+    .node.path rect{ fill:var(--sel); stroke:var(--sel); }
     .node.selected .title,
-    .node.path .title{
-      fill:#fff;
-    }
-    .link.path{
-      stroke:var(--sel);
-      stroke-width:2.4;
-      opacity:1;
-    }
+    .node.path .title{ fill:#fff; }
+    .link.path{ stroke:var(--sel); stroke-width:2.4; opacity:1; }
 
     .colLabels{
       position:absolute;
@@ -231,60 +254,19 @@
       font-weight:900;
       white-space:nowrap;
     }
-    .colLabel span{
-      white-space:normal;
-      line-height:1.15;
-      max-width:340px;
-    }
+    .colLabel span{ white-space:normal; line-height:1.15; max-width:340px; }
 
-    /* ✅ Ejes transversales (fijo, no se mueve con zoom) */
-    .axesBox{
-      position:absolute;
-      left:14px;
-      top:14px;
-      width:300px;
-      z-index:12;
-      pointer-events:auto;
-      background:var(--soft);
-      border:1px dashed var(--softBorder);
-      border-radius:12px;
-      padding:12px;
-      box-shadow:0 1px 4px rgba(15,23,42,.06);
+    @media(max-width:1100px){
+      /* en pantallas más chicas: ejes arriba del svg (pero igual NO encima) */
+      #right{ grid-template-columns: 1fr; }
+      .axesBox{ height:auto; max-height:220px; }
+      #svgWrap{ height:70vh; }
     }
-    .axesTitle{
-      margin:0 0 10px 0;
-      font-size:14px;
-      font-weight:950;
-      color:#0f172a;
-    }
-    .axesChips{
-      display:flex;
-      gap:10px;
-      flex-direction:column;
-    }
-    .axesChip{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      padding:10px 12px;
-      border-radius:999px;
-      background:#eef2ff;
-      border:1px solid #e0e7ff;
-      color:#3730a3;
-      font-weight:900;
-      font-size:14px;
-      line-height:1.1;
-      text-align:center;
-      user-select:none;
-    }
-
     @media(max-width:980px){
       .wrap{grid-template-columns:1fr; height:auto}
-      svg{height:75vh}
       header h1{font-size:40px}
       header p{font-size:14px}
       .logo{width:70px;height:70px}
-      .axesBox{position:static; width:auto; margin:10px}
     }
   </style>
 </head>
@@ -318,7 +300,6 @@
       <div style="height:10px"></div>
       <button id="renderBtn">Renderizar</button>
 
-      <!-- ✅ Filtros -->
       <div class="filtersBox">
         <div class="filtersTitle">Filtros</div>
 
@@ -339,8 +320,8 @@
     </div>
   </div>
 
-  <div id="svgWrap">
-    <!-- ✅ Caja fija en el espacio “en blanco” -->
+  <!-- ✅ Columna derecha: Ejes (rojo) | Árbol (amarillo) -->
+  <div id="right">
     <div class="axesBox" id="axesBox">
       <div class="axesTitle">Ejes transversales</div>
       <div class="axesChips">
@@ -350,19 +331,16 @@
       </div>
     </div>
 
-    <div class="colLabels" id="colLabels"></div>
-    <svg id="viz"></svg>
+    <div id="svgWrap">
+      <div class="colLabels" id="colLabels"></div>
+      <svg id="viz"></svg>
+    </div>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 <script>
 const NONE = "(Ninguno)";
-/* Precarga:
-   1: Área Prioritaria
-   2: Objetivo Estratégico
-   3-5: Ninguno
-*/
 const DEFAULT_LEVELS = ["Área Prioritaria","Objetivo Estratégico", NONE, NONE, NONE];
 
 const LABELS_ALLOWED = [
@@ -404,7 +382,6 @@ async function loadRows(){
   return data.rows;
 }
 
-/* --------- FILTROS (mutuamente “compatibles” -> se recalculan entre sí) --------- */
 const ALL = "(Todos)";
 let ROWS_CACHE = null;
 let FILTERS = { oper: ALL, area: ALL, obj: ALL };
@@ -430,7 +407,6 @@ function applyFilterToRows(rows, f){
 function updateFilterOptions(){
   const base = ROWS_CACHE || [];
 
-  // Para cada lista, aplica los otros 2 filtros y calcula opciones válidas
   const rowsForOper = applyFilterToRows(base, {oper:ALL, area:FILTERS.area, obj:FILTERS.obj});
   const rowsForArea = applyFilterToRows(base, {oper:FILTERS.oper, area:ALL, obj:FILTERS.obj});
   const rowsForObj  = applyFilterToRows(base, {oper:FILTERS.oper, area:FILTERS.area, obj:ALL});
@@ -439,7 +415,6 @@ function updateFilterOptions(){
   const areaOpts = [ALL, ...uniqSorted(rowsForArea.map(r=>(r["Área Prioritaria"]??"").toString().trim()).filter(v=>v))];
   const objOpts  = [ALL, ...uniqSorted(rowsForObj.map(r=>(r["Objetivo Estratégico"]??"").toString().trim()).filter(v=>v))];
 
-  // Mantener selección si existe, si no -> ALL
   if(!operOpts.includes(FILTERS.oper)) FILTERS.oper = ALL;
   if(!areaOpts.includes(FILTERS.area)) FILTERS.area = ALL;
   if(!objOpts.includes(FILTERS.obj)) FILTERS.obj = ALL;
@@ -454,7 +429,6 @@ function resetFilters(){
   updateFilterOptions();
 }
 
-/* --------- Árbol --------- */
 function getLevelsFromUI(){
   const raw = lvlSelects.map(s=>s.value);
   const active = raw.filter(v => v !== NONE);
@@ -510,7 +484,7 @@ let COL_STEP_X = 780;
 let BASE_POS = new Map();
 
 function setNodeFontByZoom(k){
-  const base = 30;                 // tamaño base grande
+  const base = 30;
   const scaled = base * k;
   const min = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--nodeFontMin")) || 24;
   const max = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--nodeFontMax")) || 44;
@@ -723,10 +697,6 @@ function zoomToPath(pathNodesArr){
   );
 }
 
-/* ✅ Fit que “usa” el espacio (no centra de más)
-   - ancla a la izquierda con margen
-   - escala NO mayor a 1 para que no salga gigante
-*/
 function fitToViewLeftAnchored(){
   const bounds = g.node().getBBox();
   if (bounds.width === 0 || bounds.height === 0) return;
@@ -768,9 +738,7 @@ function render(treeData){
   COL_STEP_X = NODE_CARD_WIDTH + colGap;
   const textWrapWidth = NODE_CARD_WIDTH - 36;
 
-  /* Menos “aire” blanco: reduce separación vertical */
   const rowGap = 190;
-
   const treeLayout = d3.tree().nodeSize([rowGap, 1]);
   treeLayout(ROOT_HIER);
 
@@ -837,7 +805,6 @@ function render(treeData){
 
   title.call(wrapText, textWrapWidth);
 
-  // Ajustar alto a texto + centrar vertical
   nodes.each(function(d){
     const node = d3.select(this);
     const textEl = node.select("text.title").node();
@@ -857,8 +824,6 @@ function render(treeData){
   });
 
   renderColumnLabels(CURRENT_LEVELS_ACTIVE);
-
-  // ✅ No hacer zoom “gigante” al renderizar: usar anclaje a la izquierda
   fitToViewLeftAnchored();
 
   setTimeout(positionColumnLabels, 450);
@@ -867,11 +832,8 @@ function render(treeData){
 
 async function main(){
   ROWS_CACHE = await loadRows();
-
-  // Inicializar filtros (opciones) con dataset completo
   resetFilters();
 
-  // Render inicial con (Todos)
   CURRENT_LEVELS_ACTIVE = getLevelsFromUI();
   const filtered = applyFilterToRows(ROWS_CACHE, FILTERS);
   const tree = buildTree(filtered, CURRENT_LEVELS_ACTIVE);
@@ -879,7 +841,6 @@ async function main(){
 }
 main();
 
-/* --- Eventos UI --- */
 document.getElementById("renderBtn").onclick = ()=>{
   CURRENT_LEVELS_ACTIVE = getLevelsFromUI();
   const filtered = applyFilterToRows(ROWS_CACHE, FILTERS);
@@ -899,7 +860,6 @@ document.getElementById("resetBtn").onclick = ()=>{
   clearSelection();
   resetToBaseLayout();
 
-  // volver a renderizar con todo
   CURRENT_LEVELS_ACTIVE = getLevelsFromUI();
   const tree = buildTree(ROWS_CACHE, CURRENT_LEVELS_ACTIVE);
   render(tree);
@@ -924,4 +884,5 @@ window.addEventListener("resize", ()=>{
 </script>
 </body>
 </html>
+
 
