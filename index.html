@@ -17,8 +17,7 @@
       --labelFont: 12px;
       --sel:#0b2e4a; /* azul oscuro como header */
 
-      /* ✅ texto más grande */
-      --nodeFont: 14px;
+      --nodeFont: 14px; /* texto un poco más grande */
     }
 
     html, body { height: 100%; overflow: hidden; }
@@ -326,12 +325,13 @@ let g = svg.append("g");
 
 let ROOT_HIER = null;
 let CURRENT_LEVELS_ACTIVE = [];
-let NODE_CARD_WIDTH = 260;
+let NODE_CARD_WIDTH = 280;
 
-let COL_STEP_X = 360;
+let COL_STEP_X = 380;
 
-// guardamos layout base para poder volver
-let BASE_POS = new Map(); // nodeId -> {x,y}
+// base (para reset)
+let BASE_POS = new Map();  // node -> {x,y}
+let BASE_LINKS = null;
 
 function setLabelFontByZoom(k){
   const base = 12;
@@ -359,7 +359,7 @@ function autoLiftLabels(){
   for(const el of labels){
     maxH = Math.max(maxH, el.getBoundingClientRect().height);
   }
-  const safeBottom = 14;
+  const safeBottom = 10;
   const lift = Math.ceil(maxH + safeBottom);
   colLabelsEl.style.bottom = `${lift}px`;
 }
@@ -441,22 +441,100 @@ function wrapText(selection, width){
 }
 
 /* =========================
-   Helpers selección
+   Selección / Reset
 ========================= */
 function clearSelection(){
   g.selectAll(".node").classed("selected", false).classed("path", false);
   g.selectAll(".link").classed("path", false);
 }
 
-/* Zoom a ruta */
+/* =========================
+   ✅ Re-distribución SIN reordenar:
+   - Mueve cada columna entera (depth) con un offset
+   - Así el nodo del camino por columna queda alineado en una línea
+   - No altera el orden interno de la columna
+========================= */
+function applyColumnAlignment(selectedNode){
+  if(!selectedNode) return;
+
+  // camino root->selected
+  let cur = selectedNode;
+  const path = [];
+  const byDepth = new Map(); // depth -> node en el camino
+  while(cur){
+    path.push(cur);
+    byDepth.set(cur.depth, cur);
+    cur = cur.parent;
+  }
+  path.reverse();
+
+  // baseline = altura (x) del nodo seleccionado en su posición base
+  const baseSel = BASE_POS.get(selectedNode);
+  const baseline = baseSel ? baseSel.x : selectedNode.x;
+
+  // offset por depth: baseline - x_del_nodo_camino_en_esa_columna
+  const depthOffsets = new Map();
+  ROOT_HIER.descendants().forEach(n=>{
+    if(!depthOffsets.has(n.depth)) depthOffsets.set(n.depth, 0);
+  });
+
+  for(const [depth, nodeInPath] of byDepth.entries()){
+    const b = BASE_POS.get(nodeInPath);
+    if(!b) continue;
+    depthOffsets.set(depth, baseline - b.x);
+  }
+
+  // aplicar nuevas posiciones: x' = base.x + offset(depth) ; y queda igual
+  ROOT_HIER.descendants().forEach(n=>{
+    const b = BASE_POS.get(n);
+    const off = depthOffsets.get(n.depth) || 0;
+    n._x = (b ? b.x : n.x) + off;
+    n._y = (b ? b.y : n.y);
+  });
+
+  // transición nodes
+  g.selectAll(".node")
+    .transition().duration(520)
+    .attr("transform", d => `translate(${d._y},${d._x})`);
+
+  // transición links
+  g.selectAll(".link")
+    .transition().duration(520)
+    .attr("d", d3.linkHorizontal()
+      .x(d => d._y)
+      .y(d => d._x)
+    );
+}
+
+function resetToBaseLayout(){
+  if(!ROOT_HIER) return;
+
+  ROOT_HIER.descendants().forEach(n=>{
+    const b = BASE_POS.get(n);
+    n._x = b ? b.x : n.x;
+    n._y = b ? b.y : n.y;
+  });
+
+  g.selectAll(".node")
+    .transition().duration(380)
+    .attr("transform", d => `translate(${d.y},${d.x})`);
+
+  g.selectAll(".link")
+    .transition().duration(380)
+    .attr("d", d3.linkHorizontal().x(d=>d.y).y(d=>d.x));
+}
+
+/* =========================
+   Zoom a la ruta (solo encuadre, no ocultar nada)
+========================= */
 function zoomToPath(pathNodesArr){
   if(!pathNodesArr || pathNodesArr.length === 0) return;
 
   let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
 
   for(const n of pathNodesArr){
-    const x = n.y;
-    const y = n.x;
+    const x = n._y ?? n.y;
+    const y = n._x ?? n.x;
     const w = NODE_CARD_WIDTH;
     const h = (n.data._h || 70);
 
@@ -472,8 +550,8 @@ function zoomToPath(pathNodesArr){
   const svgW = svg.node().clientWidth;
   const svgH = svg.node().clientHeight;
 
-  const pad = 90;
-  const scale = Math.min(2.5, Math.max(0.35,
+  const pad = 110;
+  const scale = Math.min(2.6, Math.max(0.35,
     0.92 / Math.max(boundsW / (svgW - pad), boundsH / (svgH - pad))
   ));
 
@@ -491,117 +569,6 @@ function zoomToPath(pathNodesArr){
   );
 }
 
-/* ✅ Focus layout: alinear ruta seleccionada en una sola línea */
-function applyFocusLayout(selectedNode){
-  if(!selectedNode) return;
-
-  // recuperar camino raíz -> seleccionado
-  let cur = selectedNode;
-  const path = [];
-  const pathSet = new Set();
-  while(cur){
-    path.push(cur);
-    pathSet.add(cur);
-    cur = cur.parent;
-  }
-  path.reverse();
-
-  // referencia: y del root
-  const root = path[0];
-  const rootY = root.x;
-
-  // Para mantener la “línea”, hacemos que cada nodo del camino tenga el mismo x (vertical)
-  // y desplazamos subárboles cerca de su padre para que no estorben tanto.
-  // Guardamos BASE_POS para poder resetear después.
-
-  // distancia vertical entre niveles en modo focus
-  const focusRowGap = 0; // misma línea exacta
-  const sideGap = 140;   // ramas laterales separadas
-
-  // asignar nuevas x a ruta
-  path.forEach((n, i)=>{
-    n._focusX = rootY + focusRowGap; // misma línea
-    n._focusY = n.y;                 // columnas iguales
-  });
-
-  // desplazar descendientes de cada nodo del camino (excepto el hijo que está en el camino)
-  for(let i=0;i<path.length;i++){
-    const node = path[i];
-    const nextOnPath = (i < path.length-1) ? path[i+1] : null;
-
-    if(!node.children) continue;
-
-    const sideKids = node.children.filter(ch => ch !== nextOnPath);
-    if(sideKids.length === 0) continue;
-
-    sideKids.forEach((kid, idx)=>{
-      // mover subárbol hacia arriba/abajo alternando
-      const dir = (idx % 2 === 0) ? 1 : -1;
-      const band = Math.ceil((idx+1)/2);
-
-      kid._focusX = node._focusX + dir * band * sideGap;
-      kid._focusY = kid.y;
-
-      // propagar al subárbol manteniendo estructura relativa (desde base)
-      propagateSubtree(kid, kid._focusX);
-    });
-  }
-
-  // para nodos fuera del camino y no tocados, usar base
-  ROOT_HIER.descendants().forEach(n=>{
-    if(n._focusX == null){
-      n._focusX = n.x;
-      n._focusY = n.y;
-    }
-  });
-
-  // aplicar transición visual
-  g.selectAll(".node")
-    .transition().duration(520)
-    .attr("transform", d => `translate(${d._focusY},${d._focusX})`);
-
-  g.selectAll(".link")
-    .transition().duration(520)
-    .attr("d", d3.linkHorizontal()
-      .x(d => d._focusY)
-      .y(d => d._focusX)
-    );
-
-  // zoom a la ruta en modo focus
-  zoomToPath(path.map(n => ({...n, x:n._focusX, y:n._focusY, data:n.data})));
-}
-
-function propagateSubtree(node, newRootX){
-  // desplazamiento respecto a posición base
-  const base = BASE_POS.get(node);
-  if(!base) return;
-
-  const dx = newRootX - base.x;
-
-  node.each(n=>{
-    const b = BASE_POS.get(n);
-    if(!b) return;
-    n._focusX = b.x + dx;
-    n._focusY = b.y;
-  });
-}
-
-/* reset layout */
-function resetToBaseLayout(){
-  ROOT_HIER.descendants().forEach(n=>{
-    n._focusX = null;
-    n._focusY = null;
-  });
-
-  g.selectAll(".node")
-    .transition().duration(380)
-    .attr("transform", d => `translate(${d.y},${d.x})`);
-
-  g.selectAll(".link")
-    .transition().duration(380)
-    .attr("d", d3.linkHorizontal().x(d=>d.y).y(d=>d.x));
-}
-
 /* =========================
    Render (columnas fijas)
 ========================= */
@@ -615,28 +582,29 @@ function render(treeData){
 
   ROOT_HIER = d3.hierarchy(treeData);
 
-  const nodeCardWidth = 280; // un poco más ancho por letra más grande
+  const nodeCardWidth = 280;
   NODE_CARD_WIDTH = nodeCardWidth;
 
-  const colGap = 110;
+  const colGap = 120;
   COL_STEP_X = nodeCardWidth + colGap;
 
   const textWrapWidth = nodeCardWidth - 22;
 
-  // Layout vertical base
-  const rowGap = 130;
+  // layout vertical base
+  const rowGap = 140;
   const treeLayout = d3.tree().nodeSize([rowGap, 1]);
   treeLayout(ROOT_HIER);
 
-  // Columnas fijas por nivel
+  // columnas fijas
   ROOT_HIER.descendants().forEach(d=>{
     d.y = d.depth * COL_STEP_X;
   });
 
-  // Guardar base positions (para reset y focus)
+  // guardar base
   BASE_POS = new Map();
   ROOT_HIER.descendants().forEach(n=>{
     BASE_POS.set(n, {x:n.x, y:n.y});
+    n._x = n.x; n._y = n.y;
   });
 
   g.selectAll(".link")
@@ -656,6 +624,7 @@ function render(treeData){
       clearSelection();
       d3.select(event.currentTarget).classed("selected", true);
 
+      // camino
       let cur = d;
       const pathNodes = [];
       const pathSet = new Set();
@@ -666,12 +635,17 @@ function render(treeData){
       }
       pathNodes.reverse();
 
+      // resaltar ruta (sin ocultar nada)
       g.selectAll(".node").classed("path", n => pathSet.has(n));
       g.selectAll(".link").classed("path", l => pathSet.has(l.target));
 
-      // ✅ aplicar “focus line layout”
-      applyFocusLayout(d);
+      // ✅ redistribuir por columnas (sin reordenar)
+      applyColumnAlignment(d);
 
+      // encuadrar ruta (opcional, no oculta nada)
+      zoomToPath(pathNodes);
+
+      // detalle
       const sample = (d.data._rows && d.data._rows[0]) ? d.data._rows[0] : null;
       const lines = [];
       lines.push(`Nodo: ${d.data.name}`);
@@ -687,18 +661,20 @@ function render(treeData){
       detail.textContent = lines.join("\n");
     });
 
-  // click fondo: vuelve a layout normal
+  // click fondo: reset layout y selección
   svg.on("click", ()=>{
     clearSelection();
     resetToBaseLayout();
   });
 
+  // rect
   nodes.append("rect")
     .attr("x", 0)
     .attr("y", -28)
     .attr("width", nodeCardWidth)
     .attr("height", 56);
 
+  // title
   const title = nodes.append("text")
     .attr("class","title")
     .attr("x", 12)
@@ -707,7 +683,7 @@ function render(treeData){
 
   title.call(wrapText, textWrapWidth);
 
-  // Centrado vertical perfecto por bbox real
+  // ✅ centrado vertical real por bbox (evita textos pegados arriba/abajo)
   nodes.each(function(d){
     const node = d3.select(this);
     const textEl = node.select("text.title").node();
@@ -722,16 +698,13 @@ function render(treeData){
       .attr("height", h);
 
     const centerShiftY = - (bbox.y + bbox.height / 2);
-
     node.select("text.title")
-      .attr("x", 12)
-      .attr("y", 0)
       .attr("transform", `translate(0, ${centerShiftY})`);
   });
 
   renderColumnLabels(CURRENT_LEVELS_ACTIVE);
 
-  // Fit inicial
+  // fit inicial
   fitToView();
   function fitToView(){
     const bounds = g.node().getBBox();
