@@ -17,10 +17,10 @@
       --labelFont: 14px;
       --sel:#0b2e4a;
 
-      /* ✅ MÁS GRANDE por defecto (legible) */
-      --nodeFont: 30px;          /* antes 26px */
-      --nodeFontMin: 40px;       /* mínimo al alejarte */
-      --nodeFontMax: 50px;       /* máximo al acercarte */
+      /* ✅ No bajamos la letra. La hacemos legible. */
+      --nodeFont: 34px;
+      --nodeFontMin: 34px;
+      --nodeFontMax: 52px;
     }
 
     html, body { height: 100%; overflow: hidden; }
@@ -47,24 +47,15 @@
       width:100%;
     }
     .logo{
-      width:64px;
-      height:64px;
-      border-radius:14px;
+      width:64px;height:64px;border-radius:14px;
       background:rgba(255,255,255,.10);
       border:1px solid rgba(255,255,255,.14);
-      overflow:hidden;
-      flex:0 0 auto;
-      display:flex;
-      align-items:center;
-      justify-content:center;
+      overflow:hidden;flex:0 0 auto;
+      display:flex;align-items:center;justify-content:center;
     }
     .logo img{
-      width:100%;
-      height:100%;
-      object-fit:contain;
-      padding:10px;
-      box-sizing:border-box;
-      display:block;
+      width:100%;height:100%;object-fit:contain;
+      padding:10px;box-sizing:border-box;display:block;
     }
     header h1{
       margin:0;
@@ -73,11 +64,7 @@
       font-weight:950;
       letter-spacing:.2px;
     }
-    header p{
-      margin:8px 0 0;
-      font-size:16px;
-      opacity:.92
-    }
+    header p{margin:8px 0 0;font-size:16px;opacity:.92}
 
     .wrap{
       display:grid;
@@ -107,81 +94,47 @@
       font-size:13px
     }
     button{
-      cursor:pointer;
-      background:#0ea5e9;
-      color:#fff;
-      border:0;
-      font-weight:800
+      cursor:pointer;background:#0ea5e9;color:#fff;border:0;font-weight:800
     }
     button:hover{filter:brightness(.95)}
 
     .small{font-size:12px;color:var(--muted);line-height:1.35}
     .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
     .chip{
-      font-size:11px;
-      padding:4px 8px;
-      border-radius:999px;
-      background:#eef2ff;
-      border:1px solid #e0e7ff;
-      color:#3730a3
+      font-size:11px;padding:4px 8px;border-radius:999px;
+      background:#eef2ff;border:1px solid #e0e7ff;color:#3730a3
     }
     .hint{
-      margin-top:10px;
-      padding:10px;
-      border-radius:12px;
-      background:#f1f5f9;
-      border:1px dashed #cbd5e1;
-      font-size:12px;
-      color:#334155
+      margin-top:10px;padding:10px;border-radius:12px;
+      background:#f1f5f9;border:1px dashed #cbd5e1;
+      font-size:12px;color:#334155
     }
 
     #svgWrap{position:relative; overflow:hidden;}
     svg{
-      width:100%;
-      height:100%;
-      display:block;
+      width:100%;height:100%;display:block;
       background:var(--card);
-      border:1px solid #e2e8f0;
-      border-radius:14px;
+      border:1px solid #e2e8f0;border-radius:14px;
       box-shadow:0 1px 4px rgba(15,23,42,.06);
     }
 
     .node rect{
-      fill:#fff;
-      stroke:#94a3b8;
-      stroke-width:1.2;
-      rx:14; ry:14;
+      fill:#fff;stroke:#94a3b8;stroke-width:1.2;
+      rx:14;ry:14;
     }
     .node .title{
       font-size:var(--nodeFont);
       fill:#0f172a;
       font-weight:900;
     }
-    .link{
-      fill:none;
-      stroke:#94a3b8;
-      stroke-width:1.2;
-      opacity:.9
-    }
-    .node:hover rect{
-      stroke:var(--accent);
-      stroke-width:2
-    }
+    .link{fill:none;stroke:#94a3b8;stroke-width:1.2;opacity:.9}
+    .node:hover rect{stroke:var(--accent);stroke-width:2}
 
     .node.selected rect,
-    .node.path rect{
-      fill:var(--sel);
-      stroke:var(--sel);
-    }
+    .node.path rect{fill:var(--sel);stroke:var(--sel);}
     .node.selected .title,
-    .node.path .title{
-      fill:#fff;
-    }
-    .link.path{
-      stroke:var(--sel);
-      stroke-width:2.4;
-      opacity:1;
-    }
+    .node.path .title{fill:#fff;}
+    .link.path{stroke:var(--sel);stroke-width:2.4;opacity:1;}
 
     @media(max-width:980px){
       .wrap{grid-template-columns:1fr; height:auto}
@@ -192,43 +145,26 @@
     }
 
     .colLabels{
-      position:absolute;
-      left:0; right:0;
-      bottom:0;
-      pointer-events:none;
-      z-index:10;
-      height:0;
+      position:absolute;left:0;right:0;bottom:0;
+      pointer-events:none;z-index:10;height:0;
     }
     .colLabel{
-      position:absolute;
-      transform:translateX(-50%);
-      display:flex;
-      align-items:center;
-      gap:8px;
-      padding:10px 14px;
-      border-radius:12px;
-      background:#0f172a;
-      color:#fff;
-      font-size:var(--labelFont);
-      font-weight:900;
+      position:absolute;transform:translateX(-50%);
+      display:flex;align-items:center;gap:8px;
+      padding:10px 14px;border-radius:12px;
+      background:#0f172a;color:#fff;
+      font-size:var(--labelFont);font-weight:900;
       opacity:.93;
       box-shadow:0 6px 16px rgba(15,23,42,.18);
-      max-width:420px;
-      white-space:normal;
+      max-width:520px;white-space:normal;
     }
     .colLabel b{
       background:rgba(255,255,255,.18);
-      padding:2px 10px;
-      border-radius:999px;
+      padding:2px 10px;border-radius:999px;
       font-size:calc(var(--labelFont) - 1px);
-      font-weight:900;
-      white-space:nowrap;
+      font-weight:900;white-space:nowrap;
     }
-    .colLabel span{
-      white-space:normal;
-      line-height:1.15;
-      max-width:340px;
-    }
+    .colLabel span{white-space:normal;line-height:1.15;max-width:420px;}
   </style>
 </head>
 
@@ -280,12 +216,6 @@
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 <script>
 const NONE = "(Ninguno)";
-
-/* ✅ Precarga como pediste:
-   1: Área Prioritaria
-   2: Objetivo Estratégico
-   3-5: Ninguno
-*/
 const DEFAULT_LEVELS = ["Área Prioritaria","Objetivo Estratégico", NONE, NONE, NONE];
 
 const LABELS_ALLOWED = [
@@ -373,21 +303,27 @@ let g = svg.append("g");
 
 let ROOT_HIER = null;
 let CURRENT_LEVELS_ACTIVE = [];
-let NODE_CARD_WIDTH = 560; /* ✅ más ancho para aprovechar espacio */
-let COL_STEP_X = 780;
-
 let BASE_POS = new Map();
 
-/* ✅ Letras SIEMPRE legibles:
-   - por defecto grande
-   - y con zoom sube/baja, pero con mínimos altos
+/* ✅ Diseño "crece en horizontal":
+   - Cada nodo calcula su ancho necesario (hasta un máximo).
+   - Para que NO se encimen y sigan en columnas: cada columna usa el MAX ancho de sus nodos.
+   - Las columnas se separan según esos anchos.
 */
+const PAD_X = 26;
+const PAD_Y = 30;
+const MIN_W = 520;     // mínimo de tarjeta
+const MAX_W = 980;     // máximo de tarjeta (evita monstruos)
+const COL_GAP = 220;   // separación entre columnas
+
+let COL_WIDTHS = [];      // por profundidad
+let COL_OFFSETS = [];     // x acumulado por profundidad
+
 function setNodeFontByZoom(k){
-  const base = 34; // ✅ grande por defecto
-  const scaled = base * k;
-  const min = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--nodeFontMin")) || 22;
-  const max = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--nodeFontMax")) || 54;
-  const clamped = Math.max(min, Math.min(max, scaled));
+  const base = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--nodeFont")) || 34;
+  const min = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--nodeFontMin")) || 34;
+  const max = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--nodeFontMax")) || 52;
+  const clamped = Math.max(min, Math.min(max, base * k));
   document.documentElement.style.setProperty("--nodeFont", clamped.toFixed(1) + "px");
 }
 function setLabelFontByZoom(k){
@@ -410,11 +346,8 @@ function renderColumnLabels(levelsActive){
 function autoLiftLabels(){
   const labels = Array.from(colLabelsEl.querySelectorAll(".colLabel"))
     .filter(el => el.style.display !== "none");
-
   let maxH = 0;
-  for(const el of labels){
-    maxH = Math.max(maxH, el.getBoundingClientRect().height);
-  }
+  for(const el of labels) maxH = Math.max(maxH, el.getBoundingClientRect().height);
   colLabelsEl.style.bottom = `${Math.ceil(maxH + 10)}px`;
 }
 function positionColumnLabels(){
@@ -438,7 +371,9 @@ function positionColumnLabels(){
     const label = colLabelsEl.querySelector(`.colLabel[data-depth="${depth}"]`);
     if(!label) continue;
 
-    const colCenterLayoutX = (depth * COL_STEP_X) + (NODE_CARD_WIDTH / 2);
+    const colX = COL_OFFSETS[depth] ?? (depth * 800);
+    const colCenterLayoutX = colX + (COL_WIDTHS[depth] || 600) / 2;
+
     const screenX = t.applyX(colCenterLayoutX);
     const leftPx = svgOffsetX + screenX;
 
@@ -449,7 +384,6 @@ function positionColumnLabels(){
     label.style.display = "";
     label.style.left = `${leftPx}px`;
   }
-
   autoLiftLabels();
 }
 
@@ -461,6 +395,10 @@ let zoom = d3.zoom()
   });
 svg.call(zoom);
 
+/* ✅ En vez de envolver por un ancho fijo, usamos el ancho REAL que necesita el texto:
+   - Intentamos 1 línea (sin wrap) para medir.
+   - Si excede MAX_W, entonces sí envolvemos a 2–3 líneas, pero preferimos crecer en horizontal.
+*/
 function wrapText(selection, width){
   selection.each(function(){
     const text = d3.select(this);
@@ -469,7 +407,7 @@ function wrapText(selection, width){
 
     let line = [];
     let lineNumber = 0;
-    const lineHeight = 1.18;  // ✅ un poquito más compacto
+    const lineHeight = 1.15;
     const x = text.attr("x");
 
     let tspan = text.append("tspan").attr("x", x).attr("y", 0).attr("dy", "0em");
@@ -533,7 +471,7 @@ function applyColumnAlignment(selectedNode){
 
   g.selectAll(".link")
     .transition().duration(520)
-    .attr("d", d3.linkHorizontal().x(d => d._y).y(d => d._x));
+    .attr("d", linkPath);
 }
 
 function resetToBaseLayout(){
@@ -551,7 +489,7 @@ function resetToBaseLayout(){
 
   g.selectAll(".link")
     .transition().duration(380)
-    .attr("d", d3.linkHorizontal().x(d=>d.y).y(d=>d.x));
+    .attr("d", linkPathBase);
 }
 
 function zoomToPath(pathNodesArr){
@@ -562,8 +500,8 @@ function zoomToPath(pathNodesArr){
   for(const n of pathNodesArr){
     const x = n._y ?? n.y;
     const y = n._x ?? n.x;
-    const w = NODE_CARD_WIDTH;
-    const h = (n.data._h || 160);
+    const w = n._w || (COL_WIDTHS[n.depth] || MIN_W);
+    const h = (n.data._h || 180);
 
     minX = Math.min(minX, x);
     maxX = Math.max(maxX, x + w);
@@ -577,7 +515,7 @@ function zoomToPath(pathNodesArr){
   const svgW = svg.node().clientWidth;
   const svgH = svg.node().clientHeight;
 
-  const pad = 220;
+  const pad = 240;
   const scale = Math.min(3.0, Math.max(0.45,
     0.95 / Math.max(boundsW / (svgW - pad), boundsH / (svgH - pad))
   ));
@@ -596,6 +534,27 @@ function zoomToPath(pathNodesArr){
   );
 }
 
+/* ✅ links que respetan ancho variable:
+   salen del borde derecho del source y llegan al borde izquierdo del target */
+function linkPath(d){
+  const s = d.source, t = d.target;
+  const sx = (s._y ?? s.y) + (s._w || (COL_WIDTHS[s.depth] || MIN_W));
+  const sy = (s._x ?? s.x);
+  const tx = (t._y ?? t.y);
+  const ty = (t._x ?? t.x);
+  const mx = (sx + tx) / 2;
+  return `M${sx},${sy} C${mx},${sy} ${mx},${ty} ${tx},${ty}`;
+}
+function linkPathBase(d){
+  const s = d.source, t = d.target;
+  const sx = (s.y) + (s._w || (COL_WIDTHS[s.depth] || MIN_W));
+  const sy = s.x;
+  const tx = t.y;
+  const ty = t.x;
+  const mx = (sx + tx) / 2;
+  return `M${sx},${sy} C${mx},${sy} ${mx},${ty} ${tx},${ty}`;
+}
+
 function render(treeData){
   svg.selectAll("*").remove();
   g = svg.append("g");
@@ -603,114 +562,152 @@ function render(treeData){
 
   ROOT_HIER = d3.hierarchy(treeData);
 
-  const colGap = 240;
-  COL_STEP_X = NODE_CARD_WIDTH + colGap;
-  const textWrapWidth = NODE_CARD_WIDTH - 36;
+  // Layout base (solo para x vertical). y lo definimos luego por columnas.
+  const rowGap = 320; // ✅ evita encimes con letra grande
+  d3.tree().nodeSize([rowGap, 1])(ROOT_HIER);
 
-  /* ✅ más separación vertical para que texto grande no choque */
-  const rowGap = 280;
+  // 1) Crear nodos con un ancho provisional (mínimo), medir texto sin wrap.
+  const nodesG = g.selectAll(".node")
+    .data(ROOT_HIER.descendants())
+    .join("g")
+    .attr("class","node");
 
-  const treeLayout = d3.tree().nodeSize([rowGap, 1]);
-  treeLayout(ROOT_HIER);
+  nodesG.append("rect")
+    .attr("x", 0)
+    .attr("y", -80)
+    .attr("width", MIN_W)
+    .attr("height", 160);
 
+  const titles = nodesG.append("text")
+    .attr("class","title")
+    .attr("x", PAD_X)
+    .attr("y", 0)
+    .text(d=>d.data.name);
+
+  // Medir ancho requerido por nodo (preferimos 1 línea; si se pasa, wrap al máximo permitido)
+  nodesG.each(function(d){
+    const node = d3.select(this);
+    const textEl = node.select("text.title");
+
+    // ✅ medir texto en una sola línea (sin wrap) -> bbox.width
+    const bbox1 = textEl.node().getBBox();
+    let desiredW = Math.ceil(bbox1.width + PAD_X*2);
+
+    // clamp
+    desiredW = Math.max(MIN_W, Math.min(MAX_W, desiredW));
+    d._w = desiredW;
+
+    // si llegamos al MAX_W y aún es largo, ahora sí envolvemos para que no se corte
+    if (desiredW >= MAX_W - 2){
+      textEl.text(d.data.name); // reset
+      wrapText(textEl, MAX_W - PAD_X*2);
+      const bboxWrapped = textEl.node().getBBox();
+      // recalcular ancho requerido (puede bajar un poco)
+      let w2 = Math.ceil(Math.min(MAX_W, Math.max(MIN_W, bboxWrapped.width + PAD_X*2)));
+      d._w = w2;
+    }
+
+    // altura según texto (con wrap o sin wrap)
+    const bboxFinal = textEl.node().getBBox();
+    const h = Math.ceil(bboxFinal.height + PAD_Y*2);
+    d.data._h = h;
+
+    node.select("rect")
+      .attr("y", -(h/2))
+      .attr("height", h)
+      .attr("width", d._w);
+
+    // centrar texto verticalmente dentro del rect
+    const centerShiftY = - (bboxFinal.y + bboxFinal.height / 2);
+    textEl.attr("transform", `translate(0, ${centerShiftY})`);
+  });
+
+  // 2) Calcular ancho por columna (máximo por depth) y offsets acumulados
+  const maxDepth = d3.max(ROOT_HIER.descendants(), d=>d.depth) || 0;
+  COL_WIDTHS = new Array(maxDepth+1).fill(MIN_W);
   ROOT_HIER.descendants().forEach(d=>{
-    d.y = d.depth * COL_STEP_X;
+    COL_WIDTHS[d.depth] = Math.max(COL_WIDTHS[d.depth], d._w || MIN_W);
   });
 
-  BASE_POS = new Map();
-  ROOT_HIER.descendants().forEach(n=>{
-    BASE_POS.set(n, {x:n.x, y:n.y});
-    n._x = n.x; n._y = n.y;
+  COL_OFFSETS = new Array(maxDepth+1).fill(0);
+  for(let depth=1; depth<=maxDepth; depth++){
+    COL_OFFSETS[depth] = COL_OFFSETS[depth-1] + COL_WIDTHS[depth-1] + COL_GAP;
+  }
+
+  // 3) Asignar y por columna (fijo) y reposicionar nodos
+  ROOT_HIER.descendants().forEach(d=>{
+    d.y = COL_OFFSETS[d.depth];
+    d._x = d.x;
+    d._y = d.y;
+
+    // Normalizar ancho al de la columna (para que TODOS queden alineados y no se encimen)
+    d._w = COL_WIDTHS[d.depth];
   });
 
+  // aplicar ancho columna a rects (sin cambiar texto)
+  nodesG.select("rect")
+    .attr("width", d=>COL_WIDTHS[d.depth]);
+
+  // asegurar x de texto padding desde izquierda
+  nodesG.select("text.title")
+    .attr("x", PAD_X);
+
+  nodesG.attr("transform", d => `translate(${d.y},${d.x})`);
+
+  // 4) Links usando ancho variable/por columna
   g.selectAll(".link")
     .data(ROOT_HIER.links())
     .join("path")
     .attr("class","link")
-    .attr("d", d3.linkHorizontal().x(d => d.y).y(d => d.x));
+    .attr("d", linkPathBase);
 
-  const nodes = g.selectAll(".node")
-    .data(ROOT_HIER.descendants())
-    .join("g")
-    .attr("class","node")
-    .attr("transform", d => `translate(${d.y},${d.x})`)
-    .on("click", (event,d)=>{
-      event.stopPropagation();
+  // interacciones
+  nodesG.on("click", (event,d)=>{
+    event.stopPropagation();
 
-      clearSelection();
-      d3.select(event.currentTarget).classed("selected", true);
+    clearSelection();
+    d3.select(event.currentTarget).classed("selected", true);
 
-      let cur = d;
-      const pathNodes = [];
-      const pathSet = new Set();
-      while(cur){
-        pathNodes.push(cur);
-        pathSet.add(cur);
-        cur = cur.parent;
-      }
-      pathNodes.reverse();
+    let cur = d;
+    const pathNodes = [];
+    const pathSet = new Set();
+    while(cur){
+      pathNodes.push(cur);
+      pathSet.add(cur);
+      cur = cur.parent;
+    }
+    pathNodes.reverse();
 
-      g.selectAll(".node").classed("path", n => pathSet.has(n));
-      g.selectAll(".link").classed("path", l => pathSet.has(l.target));
+    g.selectAll(".node").classed("path", n => pathSet.has(n));
+    g.selectAll(".link").classed("path", l => pathSet.has(l.target));
 
-      applyColumnAlignment(d);
-      zoomToPath(pathNodes);
+    applyColumnAlignment(d);
+    zoomToPath(pathNodes);
 
-      const sample = (d.data._rows && d.data._rows[0]) ? d.data._rows[0] : null;
-      const lines = [];
-      lines.push(`Nodo: ${d.data.name}`);
-      if(sample){
-        lines.push("");
-        lines.push("Ejemplo de fila asociada:");
-        Object.keys(sample).forEach(k=>{
-          if(["ID","ID_Area"].includes(k)) return;
-          const v=(sample[k]??"").toString().trim();
-          if(v) lines.push(`- ${k}: ${v}`);
-        });
-      }
-      detail.textContent = lines.join("\n");
-    });
+    const sample = (d.data._rows && d.data._rows[0]) ? d.data._rows[0] : null;
+    const lines = [];
+    lines.push(`Nodo: ${d.data.name}`);
+    if(sample){
+      lines.push("");
+      lines.push("Ejemplo de fila asociada:");
+      Object.keys(sample).forEach(k=>{
+        if(["ID","ID_Area"].includes(k)) return;
+        const v=(sample[k]??"").toString().trim();
+        if(v) lines.push(`- ${k}: ${v}`);
+      });
+    }
+    detail.textContent = lines.join("\n");
+  });
 
   svg.on("click", ()=>{
     clearSelection();
     resetToBaseLayout();
   });
 
-  nodes.append("rect")
-    .attr("x", 0)
-    .attr("y", -60)
-    .attr("width", NODE_CARD_WIDTH)
-    .attr("height", 120);
-
-  const title = nodes.append("text")
-    .attr("class","title")
-    .attr("x", 20)
-    .attr("y", 0)
-    .text(d=>d.data.name);
-
-  title.call(wrapText, textWrapWidth);
-
-  nodes.each(function(d){
-    const node = d3.select(this);
-    const textEl = node.select("text.title").node();
-    const bbox = textEl.getBBox();
-
-    /* ✅ padding extra para texto grande */
-    const padY = 40;
-    const h = bbox.height + padY * 2;
-    d.data._h = h;
-
-    node.select("rect")
-      .attr("y", -(h/2))
-      .attr("height", h);
-
-    const centerShiftY = - (bbox.y + bbox.height / 2);
-    node.select("text.title")
-      .attr("transform", `translate(0, ${centerShiftY})`);
-  });
-
+  // etiquetas de columnas solo para niveles activos (depth 1..N)
   renderColumnLabels(CURRENT_LEVELS_ACTIVE);
 
+  // encuadre inicial
   fitToView();
   function fitToView(){
     const bounds = g.node().getBBox();
@@ -733,23 +730,24 @@ function render(treeData){
     });
   }
 
+  // guardar base pos
+  BASE_POS = new Map();
+  ROOT_HIER.descendants().forEach(n=>{
+    BASE_POS.set(n, {x:n.x, y:n.y});
+  });
+
   setTimeout(positionColumnLabels, 450);
-  /* ✅ forzar tamaño legible desde el arranque */
   setNodeFontByZoom(d3.zoomTransform(svg.node()).k);
 }
 
 function getLevelsFromUI(){
   const raw = lvlSelects.map(s=>s.value);
-
   const active = raw.filter(v => v !== NONE);
+
   const used = new Set();
   const fixed = [];
-
   for(const v of active){
-    if(!used.has(v)){
-      used.add(v);
-      fixed.push(v);
-    }
+    if(!used.has(v)){ used.add(v); fixed.push(v); }
   }
 
   updateChips(fixed);
@@ -778,3 +776,4 @@ window.addEventListener("resize", ()=>{
 </script>
 </body>
 </html>
+
