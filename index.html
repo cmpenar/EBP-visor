@@ -14,9 +14,9 @@
       --line:#cbd5e1;
       --accent:#1d4ed8;
 
-      --labelFont: 14px;        /* etiquetas inferiores */
-      --sel:#0b2e4a;            /* azul oscuro selección */
-      --nodeFont: 14px;         /* ✅ MÁS GRANDE */
+      --labelFont: 14px;
+      --sel:#0b2e4a;
+      --nodeFont: 24px;
     }
 
     html, body { height: 100%; overflow: hidden; }
@@ -28,20 +28,57 @@
       color:var(--ink);
     }
 
+    /* ✅ Header con logo + título GRANDE */
     header{
       padding:14px 16px;
       background:linear-gradient(90deg,#0b2e4a,#0b3a68);
       color:#fff;
+      border-bottom:1px solid rgba(255,255,255,.12);
     }
-    header h1{margin:0;font-size:18px;font-weight:700}
-    header p{margin:6px 0 0;font-size:12px;opacity:.9}
+    .headerRow{
+      display:flex;
+      align-items:center;
+      gap:14px;
+    }
+    .logo{
+      width:56px;
+      height:56px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:12px;
+      background:rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.14);
+      overflow:hidden;
+      flex:0 0 auto;
+    }
+    .logo img{
+      width:100%;
+      height:100%;
+      object-fit:contain;
+      padding:8px;
+      box-sizing:border-box;
+      display:block;
+    }
+    header h1{
+      margin:0;
+      font-size:34px;      /* ✅ MUCHO más grande */
+      line-height:1.05;
+      font-weight:900;
+      letter-spacing:.2px;
+    }
+    header p{
+      margin:6px 0 0;
+      font-size:14px;
+      opacity:.92
+    }
 
     .wrap{
       display:grid;
       grid-template-columns:320px 1fr;
       gap:12px;
       padding:12px;
-      height:calc(100vh - 64px);
+      height:calc(100vh - 92px); /* ✅ ajustado por header más alto */
       box-sizing:border-box;
     }
 
@@ -68,7 +105,7 @@
       background:#0ea5e9;
       color:#fff;
       border:0;
-      font-weight:700
+      font-weight:800
     }
     button:hover{filter:brightness(.95)}
 
@@ -143,6 +180,8 @@
     @media(max-width:980px){
       .wrap{grid-template-columns:1fr; height:auto}
       svg{height:75vh}
+      header h1{font-size:28px}
+      .logo{width:48px;height:48px}
     }
 
     .colLabels{
@@ -188,8 +227,17 @@
 
 <body>
 <header>
-  <h1>Visor EBP</h1>
-  <p>Estrategia de País del BID 2024 -2027 | Costa Rica</p>
+  <div class="headerRow">
+    <!-- ✅ Logo BID: sube bid-logo.png al repo (misma carpeta que index.html) -->
+    <div class="logo" title="BID">
+      <img src="bid-logo.png" alt="Logo BID">
+    </div>
+
+    <div>
+      <h1>Visor EBP</h1>
+      <p>Estrategia de País del BID 2024 -2027 | Costa Rica</p>
+    </div>
+  </div>
 </header>
 
 <div class="wrap">
@@ -229,7 +277,6 @@
 const NONE = "(Ninguno)";
 const DEFAULT_LEVELS = ["Área Prioritaria","Objetivo Estratégico","Impacto Esperado", NONE, NONE];
 
-// sin Año/Fuente
 const LABELS_ALLOWED = [
   "Área Prioritaria",
   "Objetivo Estratégico",
@@ -315,15 +362,15 @@ let g = svg.append("g");
 
 let ROOT_HIER = null;
 let CURRENT_LEVELS_ACTIVE = [];
-let NODE_CARD_WIDTH = 480;  // ✅ MÁS ANCHO
-let COL_STEP_X = 640;       // ✅ MÁS SEPARACIÓN
+let NODE_CARD_WIDTH = 480;
+let COL_STEP_X = 640;
 
 let BASE_POS = new Map();
 
 function setNodeFontByZoom(k){
-  const base = 24;                 // ✅ base
+  const base = 24;
   const scaled = base * k;
-  const clamped = Math.max(18, Math.min(40, scaled));  // ✅ mínimo más grande
+  const clamped = Math.max(18, Math.min(40, scaled));
   document.documentElement.style.setProperty("--nodeFont", clamped.toFixed(1) + "px");
 }
 function setLabelFontByZoom(k){
@@ -500,7 +547,7 @@ function zoomToPath(pathNodesArr){
     const x = n._y ?? n.y;
     const y = n._x ?? n.x;
     const w = NODE_CARD_WIDTH;
-    const h = (n.data._h || 120);
+    const h = (n.data._h || 140);
 
     minX = Math.min(minX, x);
     maxX = Math.max(maxX, x + w);
@@ -649,7 +696,6 @@ function render(treeData){
 
   renderColumnLabels(CURRENT_LEVELS_ACTIVE);
 
-  // ✅ Fit más “cerca” para lectura
   fitToView();
   function fitToView(){
     const bounds = g.node().getBBox();
@@ -658,57 +704,6 @@ function render(treeData){
     const midX = bounds.x + bounds.width / 2;
     const midY = bounds.y + bounds.height / 2;
 
-    const scale = 0.82 / Math.max(bounds.width / width, bounds.height / height); // ✅ menos alejado
-    const translate = [width / 2 - scale * midX, height / 2 - scale * midY];
+    const scale = 0.
 
-    svg.transition().duration(450).call(
-      zoom.transform,
-      d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale)
-    ).on("end", ()=>positionColumnLabels());
-  }
-
-  setTimeout(positionColumnLabels, 480);
-}
-
-function getLevelsFromUI(){
-  const levelsUI = lvlSelects.map(s=>s.value);
-
-  const used = new Set();
-  for(let i=0;i<levelsUI.length;i++){
-    const v = levelsUI[i];
-    if(v === NONE) continue;
-    if(used.has(v)){
-      levelsUI[i] = NONE;
-      lvlSelects[i].value = NONE;
-    } else used.add(v);
-  }
-
-  const active = levelsUI.filter(x => x !== NONE);
-  updateChips(active);
-
-  return { levelsActive: active };
-}
-
-let ROWS_CACHE=null;
-
-async function main(){
-  ROWS_CACHE = await loadRows();
-  const {levelsActive} = getLevelsFromUI();
-  CURRENT_LEVELS_ACTIVE = levelsActive;
-  const tree = buildTree(ROWS_CACHE, CURRENT_LEVELS_ACTIVE);
-  render(tree);
-}
-main();
-
-document.getElementById("renderBtn").onclick = ()=>{
-  const {levelsActive} = getLevelsFromUI();
-  CURRENT_LEVELS_ACTIVE = levelsActive;
-  const tree = buildTree(ROWS_CACHE, CURRENT_LEVELS_ACTIVE);
-  render(tree);
-};
-
-window.addEventListener("resize", ()=>positionColumnLabels());
-</script>
-</body>
-</html>
 
