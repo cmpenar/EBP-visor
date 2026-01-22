@@ -10,7 +10,6 @@
       --labelFont: 12px;
     }
 
-    /* ✅ Sin scroll vertical global */
     html, body { height: 100%; overflow: hidden; }
 
     body{
@@ -33,7 +32,6 @@
       box-sizing:border-box;
     }
 
-    /* Panel izquierdo con scroll interno (la página no scrollea) */
     .panel{
       background:var(--card);
       border:1px solid #e2e8f0;
@@ -65,7 +63,6 @@
 
     .node rect{fill:#fff;stroke:#94a3b8;stroke-width:1.2;rx:10;ry:10}
     .node .title{font-size:12px;fill:#0f172a;font-weight:650}
-    .node .meta{font-size:10px;fill:#64748b}
     .link{fill:none;stroke:#94a3b8;stroke-width:1.2;opacity:.9}
     .node:hover rect{stroke:var(--accent);stroke-width:2}
 
@@ -74,17 +71,15 @@
       svg{height:75vh}
     }
 
-    /* ✅ contenedor de chips */
     .colLabels{
       position:absolute;
       left:0; right:0;
-      bottom:0;              /* lo ajustamos por JS dinámicamente */
+      bottom:0;
       pointer-events:none;
       z-index:10;
       height:0;
     }
 
-    /* ✅ chip individual */
     .colLabel{
       position:absolute;
       transform:translateX(-50%);
@@ -200,12 +195,14 @@ async function loadRows(){
 
 function buildTree(rows, levels){
   const root = {name:"EBP Costa Rica 2024-2027", children:[]};
+
   function getChild(parent, name){
     if(!parent.children) parent.children=[];
     let c = parent.children.find(x=>x.name===name);
     if(!c){ c={name, children:[], _count:0, _rows:[]}; parent.children.push(c); }
     return c;
   }
+
   rows.forEach(r=>{
     let p=root;
     levels.forEach(lvl=>{
@@ -216,10 +213,10 @@ function buildTree(rows, levels){
       p._rows.push(r);
     });
   });
+
   return root;
 }
 
-// ---- D3 ----
 const svg = d3.select("#viz");
 let g = svg.append("g");
 
@@ -245,10 +242,7 @@ function renderColumnLabels(levels){
   });
 }
 
-/* ✅ Ajusta automáticamente la altura del footer para que no se corte */
 function autoLiftLabels(){
-  // mide el label más alto visible y sube el contenedor para que entre
-  const wrapRect = svgWrapEl.getBoundingClientRect();
   const labels = Array.from(colLabelsEl.querySelectorAll(".colLabel"))
     .filter(el => el.style.display !== "none");
 
@@ -257,15 +251,11 @@ function autoLiftLabels(){
     maxH = Math.max(maxH, el.getBoundingClientRect().height);
   }
 
-  // margen seguro + altura del chip
-  const safeBottom = 14;            // margen desde el borde inferior
+  const safeBottom = 14;
   const lift = Math.ceil(maxH + safeBottom);
-
-  // si el chip es alto (por zoom), lo subimos más
   colLabelsEl.style.bottom = `${lift}px`;
 }
 
-/* ✅ Posiciona chips alineados a columnas, oculta fuera de vista y sube auto */
 function positionColumnLabels(){
   if(!ROOT_HIER) return;
 
@@ -276,7 +266,6 @@ function positionColumnLabels(){
   const wrapRect = svgWrapEl.getBoundingClientRect();
   const svgOffsetX = svgRect.left - wrapRect.left;
 
-  // margen para que no se corten a los lados
   const margin = 60;
   const visibleMinX = margin;
   const visibleMaxX = wrapRect.width - margin;
@@ -291,20 +280,13 @@ function positionColumnLabels(){
       continue;
     }
 
-    // mediana robusta de columna (d.y)
     const ys = nodesAtDepth.map(d=>d.y).sort((a,b)=>a-b);
     const yMed = ys[Math.floor(ys.length/2)];
-
-    // centro de columna = d.y + mitad del card
     const colCenterLayoutX = yMed + (NODE_CARD_WIDTH / 2);
 
-    // a pantalla con zoom
     const screenX = t.applyX(colCenterLayoutX);
-
-    // a coords del contenedor
     const leftPx = svgOffsetX + screenX;
 
-    // ✅ oculta si su columna no se ve
     if(leftPx < visibleMinX || leftPx > visibleMaxX){
       label.style.display = "none";
       continue;
@@ -314,7 +296,6 @@ function positionColumnLabels(){
     label.style.left = `${leftPx}px`;
   }
 
-  // ✅ luego de mostrar/ocultar, sube para que nunca se corte
   autoLiftLabels();
 }
 
@@ -394,7 +375,7 @@ function render(treeData){
       const sample = (d.data._rows && d.data._rows[0]) ? d.data._rows[0] : null;
       const lines = [];
       lines.push(`Nodo: ${d.data.name}`);
-      lines.push(`Registros en este camino: ${d.data._count || 0}`);
+
       if(sample){
         lines.push("");
         lines.push("Ejemplo de fila asociada:");
@@ -404,6 +385,7 @@ function render(treeData){
           if(v) lines.push(`- ${k}: ${v}`);
         });
       }
+
       detail.textContent = lines.join("\n");
     });
 
@@ -422,28 +404,21 @@ function render(treeData){
 
   title.call(wrapText, textWrapWidth);
 
-  nodes.append("text")
-    .attr("class","meta")
-    .attr("x", 12)
-    .attr("y", 18)
-    .text(d=>{
-      const c = d.data._count || (d.children ? d.children.length : 0);
-      return d.depth===0 ? "" : `Registros: ${c}`;
-    });
+  /* ✅ YA NO SE CREA LA LÍNEA META "Registros: X" */
 
   nodes.each(function(d){
     const node = d3.select(this);
     const tspans = node.selectAll("text.title tspan").nodes();
     const lines = tspans.length || 1;
     const titleHeight = Math.max(1, lines) * 15;
-    const h = 44 + titleHeight;
+    const h = 28 + titleHeight + 18; // altura sin meta
+
     node.select("rect")
       .attr("y", -(h/2))
       .attr("height", h);
+
     node.select("text.title")
       .attr("y", -(h/2) + 14);
-    node.select("text.meta")
-      .attr("y", (h/2) - 12);
   });
 
   renderColumnLabels(CURRENT_LEVELS);
@@ -473,6 +448,7 @@ function render(treeData){
 function getLevelsFromUI(){
   const levels = lvlSelects.map(s=>s.value);
   const used=new Set();
+
   for(let i=0;i<levels.length;i++){
     if(used.has(levels[i])){
       const repl = LABELS.find(x=>!used.has(x));
@@ -481,6 +457,7 @@ function getLevelsFromUI(){
     }
     used.add(levels[i]);
   }
+
   updateChips(levels);
   return levels;
 }
@@ -501,7 +478,6 @@ document.getElementById("renderBtn").onclick = ()=>{
   render(tree);
 };
 
-// ✅ si cambias tamaño de ventana, recalcula posiciones y lift
 window.addEventListener("resize", ()=>{
   positionColumnLabels();
 });
