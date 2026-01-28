@@ -465,7 +465,7 @@
   </div>
 
 <script src="https://cdn.jsdelivr.net/npm/d3@7">
-function fitToViewCentered({ padding = 0.06, maxScale = 3.2 } = {}) {
+function fitToViewCentered({ padding = 0.14, maxScale = 2.2 } = {}) {
   // Centers AND fits the tree group into the usable drawing area.
   const svgEl = svg.node();
   const vb = getUsableViewport(); // { x, y, width, height }
@@ -499,6 +499,28 @@ function fitToViewCentered({ padding = 0.06, maxScale = 3.2 } = {}) {
   svg.transition().duration(450).call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
 }
 
+
+function scheduleInitialFit() {
+  // Run after layout settles (fonts, SVG bbox) so the initial view matches what you see after browser zoom-out.
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      scheduleInitialFit();
+      setTimeout(() => fitToViewCentered(), 250); // second pass for safety
+    });
+  });
+}
+
+
+
+window.addEventListener('load', () => {
+  // In case the tree is rendered on load
+  try { scheduleInitialFit(); } catch(e) {}
+});
+
+window.addEventListener('resize', () => {
+  // Keep it nicely fitted when the viewport changes
+  try { scheduleInitialFit(); } catch(e) {}
+});
 </script>
 <script>
 const NONE = "(Ninguno)";
@@ -1148,7 +1170,7 @@ function render(treeData){
   addPrevDotToOperacionNodes(nodes);
 
   renderColumnLabels(CURRENT_LEVELS_ACTIVE);
-  fitToViewCentered();
+  scheduleInitialFit();
 
   setTimeout(positionColumnLabels, 450);
   setTimeout(()=>setNodeFontByZoom(d3.zoomTransform(svg.node()).k), 480);
@@ -1209,13 +1231,13 @@ window.addEventListener("resize", ()=>{
     buildColumnMetrics(maxDepth, svg.node().clientWidth);
     ROOT_HIER.descendants().forEach(d=>{ d.y = COL_X[d.depth]; });
     resetToBaseLayout();
-    fitToViewCentered();
+    scheduleInitialFit();
   }else{
     positionColumnLabels();
   }
 });
 
-function fitToViewCentered({ padding = 0.06, maxScale = 3.2 } = {}) {
+function fitToViewCentered({ padding = 0.14, maxScale = 2.2 } = {}) {
   // Centers AND fits the tree group into the usable drawing area.
   const svgEl = svg.node();
   const vb = getUsableViewport(); // { x, y, width, height }
@@ -1249,13 +1271,16 @@ function fitToViewCentered({ padding = 0.06, maxScale = 3.2 } = {}) {
   svg.transition().duration(450).call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
 }
 
+
+window.addEventListener('load', () => {
+  // In case the tree is rendered on load
+  try { scheduleInitialFit(); } catch(e) {}
+});
+
+window.addEventListener('resize', () => {
+  // Keep it nicely fitted when the viewport changes
+  try { scheduleInitialFit(); } catch(e) {}
+});
 </script>
 </body>
 </html>
-
-
-
-
-
-
-
