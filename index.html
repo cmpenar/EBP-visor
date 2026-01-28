@@ -620,7 +620,9 @@ function updateOperLegendVisibility(){
 const BASE_NODE_WIDTH = 560;
 const OBJ_NODE_WIDTH  = 860;
 const IMP_NODE_WIDTH  = 860;
-const COL_GAP = 240;
+const COL_GAP_MIN = 240;
+const COL_GAP_MAX = 520;
+let COL_GAP = COL_GAP_MIN;
 
 let COL_X = [];
 let WIDTH_BY_DEPTH = [];
@@ -630,7 +632,7 @@ function getDepthOfLevelName(levelName){
   return idx === -1 ? -1 : (idx + 1);
 }
 
-function buildColumnMetrics(maxDepth){
+function buildColumnMetrics(maxDepth, svgW){
   const objDepth = getDepthOfLevelName("Objetivo Estratégico");
   const impDepth = getDepthOfLevelName("Impacto Esperado");
 
@@ -640,6 +642,17 @@ function buildColumnMetrics(maxDepth){
     if(d === impDepth) return IMP_NODE_WIDTH;
     return BASE_NODE_WIDTH;
   });
+
+  // ✅ GAP dinámico: si sobra ancho, abrimos la separación horizontal entre columnas
+  const nCols = (maxDepth + 1);
+  const sumW = WIDTH_BY_DEPTH.reduce((a,b)=>a+b, 0);
+  const usableW = Math.max(1, (svgW || 0) - 120); // margen visual
+  if(nCols > 1 && usableW > sumW){
+    const gap = (usableW - sumW) / (nCols - 1);
+    COL_GAP = Math.max(COL_GAP_MIN, Math.min(COL_GAP_MAX, gap));
+  }else{
+    COL_GAP = COL_GAP_MIN;
+  }
 
   COL_X = Array.from({length: maxDepth + 1}, () => 0);
   for(let d=1; d<=maxDepth; d++){
@@ -871,28 +884,32 @@ function zoomToPath(pathNodesArr){
   );
 }
 
-function fitToViewLeftAnchored(){
+function fitToViewCentered(){
   const bounds = g.node().getBBox();
   if (bounds.width === 0 || bounds.height === 0) return;
 
   const svgW = svg.node().clientWidth;
   const svgH = svg.node().clientHeight;
 
-  const marginLeft = 40;
-  const marginTop  = 30;
-  const marginBottom = 60;
+  const pad = 80; // padding general
+  const usableW = Math.max(1, svgW - pad*2);
+  const usableH = Math.max(1, svgH - pad*2);
 
-  const usableW = Math.max(1, svgW - marginLeft - 40);
-  const usableH = Math.max(1, svgH - marginTop - marginBottom);
+  const maxK = (zoom.scaleExtent ? zoom.scaleExtent()[1] : 3.2) || 3.2;
 
-  const scale = Math.min(1.0, 0.98 / Math.max(bounds.width / usableW, bounds.height / usableH));
+  // ✅ escala para ocupar el área disponible (sin quedar "recogido")
+  const scale = Math.min(
+    maxK,
+    0.98 / Math.max(bounds.width / usableW, bounds.height / usableH)
+  );
 
-  const translateX = marginLeft - scale * bounds.x;
-  const centerY = marginTop + usableH/2;
-  const boundsMidY = bounds.y + bounds.height/2;
-  const translateY = centerY - scale * boundsMidY;
+  const midX = bounds.x + bounds.width / 2;
+  const midY = bounds.y + bounds.height / 2;
 
-  svg.transition().duration(380).call(
+  const translateX = svgW/2 - scale * midX;
+  const translateY = svgH/2 - scale * midY;
+
+  svg.transition().duration(420).call(
     zoom.transform,
     d3.zoomIdentity.translate(translateX, translateY).scale(scale)
   ).on("end", ()=>{
@@ -1006,7 +1023,8 @@ function render(treeData){
   treeLayout(ROOT_HIER);
 
   const maxDepth = d3.max(ROOT_HIER.descendants(), d => d.depth) || 0;
-  buildColumnMetrics(maxDepth);
+  const svgW = svg.node().clientWidth;
+  buildColumnMetrics(maxDepth, svgW);
 
   ROOT_HIER.descendants().forEach(d=>{
     d.y = COL_X[d.depth];
@@ -1095,7 +1113,7 @@ function render(treeData){
   addPrevDotToOperacionNodes(nodes);
 
   renderColumnLabels(CURRENT_LEVELS_ACTIVE);
-  fitToViewLeftAnchored();
+  fitToViewCentered();
 
   setTimeout(positionColumnLabels, 450);
   setTimeout(()=>setNodeFontByZoom(d3.zoomTransform(svg.node()).k), 480);
@@ -1150,10 +1168,21 @@ fObjetivo.addEventListener("change", ()=>{
 });
 
 window.addEventListener("resize", ()=>{
-  positionColumnLabels();
+  if(ROOT_HIER){
+    // Recalcula separación horizontal y re-encuadra al centro
+    const maxDepth = d3.max(ROOT_HIER.descendants(), d => d.depth) || 0;
+    buildColumnMetrics(maxDepth, svg.node().clientWidth);
+    ROOT_HIER.descendants().forEach(d=>{ d.y = COL_X[d.depth]; });
+    resetToBaseLayout();
+    fitToViewCentered();
+  }else{
+    positionColumnLabels();
+  }
 });
 </script>
 </body>
 </html>
+
+
 
 
