@@ -18,8 +18,8 @@
       --topLabelsSpace: 44px;
       --sel:#0b2e4a;
 
-      --nodeFont: 40px;
-      --nodeFontMin: 40px;
+      --nodeFont: 35px;
+      --nodeFontMin: 35px;
       --nodeFontMax: 51px;
 
       --soft:#f1f5f9;
@@ -464,7 +464,42 @@
     </div>
   </div>
 
-<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3@7">
+function fitToViewCentered({ padding = 0.06, maxScale = 3.2 } = {}) {
+  // Centers AND fits the tree group into the usable drawing area.
+  const svgEl = svg.node();
+  const vb = getUsableViewport(); // { x, y, width, height }
+
+  // Use the tree group's bounds (not the whole SVG)
+  const gNode = g.node();
+  if (!gNode) return;
+
+  const bounds = gNode.getBBox();
+  if (!bounds || bounds.width === 0 || bounds.height === 0) return;
+
+  const usableW = vb.width;
+  const usableH = vb.height;
+
+  // Fit scale (allow > 1 so small trees expand)
+  const scale = Math.min(
+    maxScale,
+    (1 - padding) / Math.max(bounds.width / usableW, bounds.height / usableH)
+  );
+
+  // Center on usable viewport
+  const cxBounds = bounds.x + bounds.width / 2;
+  const cyBounds = bounds.y + bounds.height / 2;
+
+  const cxView = vb.x + usableW / 2;
+  const cyView = vb.y + usableH / 2;
+
+  const tx = cxView - scale * cxBounds;
+  const ty = cyView - scale * cyBounds;
+
+  svg.transition().duration(450).call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+}
+
+</script>
 <script>
 const NONE = "(Ninguno)";
 const DEFAULT_LEVELS = ["Área Prioritaria","Objetivo Estratégico", NONE, NONE, NONE];
@@ -1179,9 +1214,47 @@ window.addEventListener("resize", ()=>{
     positionColumnLabels();
   }
 });
+
+function fitToViewCentered({ padding = 0.06, maxScale = 3.2 } = {}) {
+  // Centers AND fits the tree group into the usable drawing area.
+  const svgEl = svg.node();
+  const vb = getUsableViewport(); // { x, y, width, height }
+
+  // Use the tree group's bounds (not the whole SVG)
+  const gNode = g.node();
+  if (!gNode) return;
+
+  const bounds = gNode.getBBox();
+  if (!bounds || bounds.width === 0 || bounds.height === 0) return;
+
+  const usableW = vb.width;
+  const usableH = vb.height;
+
+  // Fit scale (allow > 1 so small trees expand)
+  const scale = Math.min(
+    maxScale,
+    (1 - padding) / Math.max(bounds.width / usableW, bounds.height / usableH)
+  );
+
+  // Center on usable viewport
+  const cxBounds = bounds.x + bounds.width / 2;
+  const cyBounds = bounds.y + bounds.height / 2;
+
+  const cxView = vb.x + usableW / 2;
+  const cyView = vb.y + usableH / 2;
+
+  const tx = cxView - scale * cxBounds;
+  const ty = cyView - scale * cyBounds;
+
+  svg.transition().duration(450).call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+}
+
 </script>
 </body>
 </html>
+
+
+
 
 
 
