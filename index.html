@@ -182,7 +182,7 @@
       min-height:0;
     }
 
-    /* ✅ Franja inferior (rectángulo amarillo) */
+    /* ✅ Franja inferior */
     #bottomBand{
       flex:0 0 auto;
       display:flex;
@@ -195,7 +195,7 @@
       min-width:0;
     }
 
-    /* ✅ Ejes transversales (ahora en la franja inferior) */
+    /* ✅ Ejes transversales */
     .axesBox{
       flex:1 1 auto;
       background:transparent;
@@ -244,7 +244,7 @@
       min-height:44px;
     }
 
-    /* ✅ Leyenda de Operaciones (solo cuando se renderiza Operaciones vinculadas) */
+    /* ✅ Leyenda de Operaciones */
     .operLegend{
       background:#ffffffcc;
       border:1px solid #e2e8f0;
@@ -401,8 +401,6 @@
       <label>Nivel 4</label><select id="lvl4"></select>
       <label>Nivel 5</label><select id="lvl5"></select>
 
-      <div style="height:10px"></div>
-
       <div class="filtersBox">
         <div class="filtersTitle">Filtros</div>
 
@@ -415,7 +413,7 @@
         <label>Objetivo Estratégico</label>
         <select id="fObjetivo"></select>
 
-        <!-- ✅ SOLO DOS BOTONES: Renderizar + Reestablecer -->
+        <!-- ✅ SOLO DOS BOTONES -->
         <div class="btnRow">
           <button id="renderBtn">Renderizar</button>
           <button id="resetBtn" class="btnSecondary">Reestablecer</button>
@@ -426,7 +424,6 @@
 
   <div id="rightFrame">
     <div id="right">
-      <!-- ✅ Área del árbol -->
       <div id="treeArea">
         <div id="svgWrap">
           <div class="colLabels" id="colLabels"></div>
@@ -434,9 +431,7 @@
         </div>
       </div>
 
-      <!-- ✅ Franja inferior: Leyenda + Ejes Transversales -->
       <div id="bottomBand">
-        <!-- ✅ Leyenda SOLO cuando renderizas Operaciones -->
         <div id="operLegend" class="operLegend" style="display:none; flex:0 0 360px;">
           <div class="operLegendRow">
             <span class="operLegendDot operYes"></span>
@@ -461,7 +456,7 @@
   </div>
 </div>
 
-<!-- ✅ D3 bien cargado -->
+<!-- ✅ D3 correctamente cargado -->
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 
 <script>
@@ -486,7 +481,6 @@ const fOperacion = document.getElementById("fOperacion");
 const fArea = document.getElementById("fArea");
 const fObjetivo = document.getElementById("fObjetivo");
 
-/* ✅ Leyenda */
 const operLegendEl = document.getElementById("operLegend");
 
 function fillSelect(select, options, selected){
@@ -557,6 +551,13 @@ function resetFilters(){
   updateFilterOptions();
 }
 
+/* ✅ Reset niveles exactamente como al abrir */
+function resetLevelsToDefault(){
+  lvlSelects.forEach((sel, i) => {
+    sel.value = DEFAULT_LEVELS[i] || NONE;
+  });
+}
+
 function getLevelsFromUI(){
   const raw = lvlSelects.map(s=>s.value);
   const active = raw.filter(v => v !== NONE);
@@ -607,7 +608,6 @@ let g = svg.append("g");
 let ROOT_HIER = null;
 let CURRENT_LEVELS_ACTIVE = [];
 
-/* ✅ Mostrar/Ocultar leyenda SOLO si se renderizan Operaciones */
 function updateOperLegendVisibility(){
   const show = CURRENT_LEVELS_ACTIVE.includes("Operaciones vinculadas");
   operLegendEl.style.display = show ? "block" : "none";
@@ -1124,7 +1124,10 @@ function renderAll(){
 
 async function main(){
   ROWS_CACHE = await loadRows();
+
+  // Estado inicial EXACTO
   resetFilters();
+  resetLevelsToDefault();
   renderAll();
 }
 main();
@@ -1132,9 +1135,10 @@ main();
 /* ✅ BOTÓN ÚNICO: Renderizar */
 document.getElementById("renderBtn").onclick = renderAll;
 
-/* ✅ Reestablecer: resetea filtros + re-render */
+/* ✅ Reestablecer: deja TODO como al abrir (filtros + niveles + render) */
 document.getElementById("resetBtn").onclick = ()=>{
   resetFilters();
+  resetLevelsToDefault();
   clearSelection();
   resetToBaseLayout();
   renderAll();
@@ -1167,7 +1171,6 @@ window.addEventListener("resize", ()=>{
 
 // ---- Initial fit that matches "after zoom-out" view ----
 let __didInitialFit = false;
-/* ✅ corregido: tu id es svgWrap */
 const __svgWrap = document.getElementById('svgWrap');
 
 if (__svgWrap && 'ResizeObserver' in window) {
@@ -1191,6 +1194,3 @@ if (__svgWrap && 'ResizeObserver' in window) {
 
 </body>
 </html>
-
-
-
