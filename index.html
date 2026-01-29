@@ -96,7 +96,7 @@
       min-height:0;
     }
 
-    /* ✅ CLAVE: columna con altura completa */
+    /* ✅ columna con altura completa */
     .panel .inner{
       padding:12px;
       display:flex;
@@ -124,38 +124,29 @@
     }
     button:hover{filter:brightness(.95)}
 
-    /* ✅ Filtros se estira, y con más espacio arriba para que NO se monte el texto */
+    /* ✅ Filtros: NO se sale el contenido (scroll interno) */
     .filtersBox{
       margin-top:12px;
-      padding:16px 12px 26px;   /* ✅ más espacio abajo */
+      padding:16px 12px 26px;   /* ✅ extra abajo */
       border-radius:12px;
       background:var(--soft);
       border:1px dashed var(--softBorder);
-    
+
       flex:1 1 auto;
       display:flex;
       flex-direction:column;
-    
-      overflow:auto;            /* ✅ CLAVE: el contenido no se sale del box */
+
+      overflow:auto;            /* ✅ CLAVE */
       box-sizing:border-box;
       min-height:0;
-    }
-    
-    .btnRowOutside{
-      display:flex;
-      gap:10px;
-      margin-top:12px;
-      padding-top:12px;
-      border-top:none;
-      flex:0 0 auto;            /* ✅ evita que los botones “aplasten” al box */
     }
 
     .filtersTitle{
       font-weight:900;
-      margin:0 0 10px 0;          /* ✅ separación con el contenido */
+      margin:0 0 10px 0;
       color:#0f172a;
       font-size:14px;
-      line-height:1.2;            /* ✅ evita encimarse */
+      line-height:1.2;
     }
 
     .filtersBox label{
@@ -163,17 +154,17 @@
       font-size:12px;
       color:#52657b;
     }
-
-    /* ✅ extra: separa el primer label del título */
     .filtersBox label:first-of-type{ margin-top:12px; }
+    .filtersBox select:last-of-type{ margin-bottom:10px; }
 
-    /* ✅ Botones FUERA del box, SIN línea amarilla */
+    /* ✅ Botones fuera del box, sin línea amarilla */
     .btnRowOutside{
       display:flex;
       gap:10px;
       margin-top:12px;
       padding-top:12px;
-      border-top:none;            /* ✅ ya no hay línea amarilla */
+      border-top:none;
+      flex:0 0 auto;            /* ✅ evita aplastar al box */
     }
     .btnRowOutside button{
       width:100%;
@@ -440,7 +431,6 @@
         <select id="fObjetivo"></select>
       </div>
 
-      <!-- ✅ Botones fuera del box -->
       <div class="btnRowOutside">
         <button id="renderBtn">Renderizar</button>
         <button id="resetBtn" class="btnSecondary">Reestablecer</button>
@@ -498,7 +488,7 @@ const LABELS_ALLOWED = [
 ];
 const LEVEL_OPTIONS = [NONE, ...LABELS_ALLOWED];
 
-/* ✅ Solo UI */
+/* ✅ Solo UI (sin cambiar keys reales) */
 const DISPLAY_LABEL = {
   "Cooperaciones técnicas vinculadas": "Principales Cooperaciones Técnicas Vinculadas"
 };
@@ -511,6 +501,7 @@ const svgWrapEl = document.getElementById("svgWrap");
 const fOperacion = document.getElementById("fOperacion");
 const fArea = document.getElementById("fArea");
 const fObjetivo = document.getElementById("fObjetivo");
+
 const operLegendEl = document.getElementById("operLegend");
 
 function fillSelect(select, options, selected){
@@ -601,6 +592,7 @@ function getLevelsFromUI(){
   return fixed;
 }
 
+/* ✅ AQUÍ EL CAMBIO: si CT está vacío, NO renderiza ese nivel */
 function buildTree(rows, levelsActive){
   const root = {name:"EBP Costa Rica 2024-2027", children:[]};
 
@@ -620,12 +612,21 @@ function buildTree(rows, levelsActive){
       return;
     }
 
-    levelsActive.forEach(lvl=>{
+    for (const lvl of levelsActive){
       let v = (r[lvl] ?? "").toString().trim();
+
+      // ✅ Si es Cooperaciones técnicas y viene vacío: NO crea "(Sin dato)" y NO baja a ese nivel
+      if(lvl === "Cooperaciones técnicas vinculadas" && !v){
+        (p._rows ||= []).push(r);
+        break;
+      }
+
+      // normal para otros niveles
       if(!v) v="(Sin dato)";
+
       p=getChild(p, v);
-      p._rows.push(r);
-    });
+      (p._rows ||= []).push(r);
+    }
   });
 
   return root;
@@ -642,6 +643,7 @@ function updateOperLegendVisibility(){
   operLegendEl.style.display = show ? "block" : "none";
 }
 
+/* ========================================================= */
 const BASE_NODE_WIDTH = 560;
 const OBJ_NODE_WIDTH  = 860;
 const IMP_NODE_WIDTH  = 860;
@@ -688,6 +690,7 @@ function nodeWidth(d){
   const depth = (typeof d === "number") ? d : d.depth;
   return WIDTH_BY_DEPTH[depth] ?? BASE_NODE_WIDTH;
 }
+/* ========================================================= */
 
 let BASE_POS = new Map();
 
@@ -719,7 +722,6 @@ function renderColumnLabels(levelsActive){
 function autoLiftLabels(){
   const labels = Array.from(colLabelsEl.querySelectorAll(".colLabel"))
     .filter(el => el.style.display !== "none");
-
   let maxH = 0;
   for(const el of labels){
     maxH = Math.max(maxH, el.getBoundingClientRect().height);
@@ -1033,6 +1035,8 @@ async function main(){
 main();
 
 document.getElementById("renderBtn").onclick = renderAll;
+
+/* ✅ Reestablecer = estado inicial completo */
 document.getElementById("resetBtn").onclick = ()=>{
   resetFilters();
   resetLevelsToDefault();
