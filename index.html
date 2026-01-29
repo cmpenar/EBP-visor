@@ -86,7 +86,6 @@
       min-height:0;
     }
 
-    /* Panel izquierdo */
     .panel{
       background:var(--card);
       border:1px solid #e2e8f0;
@@ -95,8 +94,6 @@
       overflow:auto;
       min-height:0;
     }
-
-    /* ✅ columna con altura completa */
     .panel .inner{
       padding:12px;
       display:flex;
@@ -124,10 +121,10 @@
     }
     button:hover{filter:brightness(.95)}
 
-    /* ✅ Filtros: NO se sale el contenido (scroll interno) */
+    /* ✅ Box filtros sin superposición */
     .filtersBox{
       margin-top:12px;
-      padding:16px 12px 26px;   /* ✅ extra abajo */
+      padding:16px 12px 26px;
       border-radius:12px;
       background:var(--soft);
       border:1px dashed var(--softBorder);
@@ -136,7 +133,7 @@
       display:flex;
       flex-direction:column;
 
-      overflow:auto;            /* ✅ CLAVE */
+      overflow:auto;         /* ✅ CLAVE */
       box-sizing:border-box;
       min-height:0;
     }
@@ -148,7 +145,6 @@
       font-size:14px;
       line-height:1.2;
     }
-
     .filtersBox label{
       margin:10px 0 6px;
       font-size:12px;
@@ -157,14 +153,14 @@
     .filtersBox label:first-of-type{ margin-top:12px; }
     .filtersBox select:last-of-type{ margin-bottom:10px; }
 
-    /* ✅ Botones fuera del box, sin línea amarilla */
+    /* ✅ Botones fuera del box */
     .btnRowOutside{
       display:flex;
       gap:10px;
       margin-top:12px;
       padding-top:12px;
       border-top:none;
-      flex:0 0 auto;            /* ✅ evita aplastar al box */
+      flex:0 0 auto;
     }
     .btnRowOutside button{
       width:100%;
@@ -175,7 +171,6 @@
     }
     .btnSecondary{ background:#0b2e4a; }
 
-    /* Derecha */
     #rightFrame{
       background:var(--card);
       border:1px solid #e2e8f0;
@@ -488,7 +483,7 @@ const LABELS_ALLOWED = [
 ];
 const LEVEL_OPTIONS = [NONE, ...LABELS_ALLOWED];
 
-/* ✅ Solo UI (sin cambiar keys reales) */
+/* ✅ Renombre SOLO UI */
 const DISPLAY_LABEL = {
   "Cooperaciones técnicas vinculadas": "Principales Cooperaciones Técnicas Vinculadas"
 };
@@ -501,7 +496,6 @@ const svgWrapEl = document.getElementById("svgWrap");
 const fOperacion = document.getElementById("fOperacion");
 const fArea = document.getElementById("fArea");
 const fObjetivo = document.getElementById("fObjetivo");
-
 const operLegendEl = document.getElementById("operLegend");
 
 function fillSelect(select, options, selected){
@@ -592,39 +586,39 @@ function getLevelsFromUI(){
   return fixed;
 }
 
-/* ✅ AQUÍ EL CAMBIO: si CT está vacío, NO renderiza ese nivel */
+/* ✅ CLAVE: saltar CT vacía SIN eliminar rama, manteniendo columnas con _col */
 function buildTree(rows, levelsActive){
-  const root = {name:"EBP Costa Rica 2024-2027", children:[]};
+  const root = {name:"EBP Costa Rica 2024-2027", children:[], _col: 0, _lvl: "__root__", _rows:[]};
 
-  function getChild(parent, name){
+  function getChild(parent, name, lvlName, col){
     if(!parent.children) parent.children=[];
-    let c = parent.children.find(x=>x.name===name);
-    if(!c){ c={name, children:[], _rows:[]}; parent.children.push(c); }
+    let c = parent.children.find(x => x.name === name && x._lvl === lvlName);
+    if(!c){
+      c = {name, children:[], _rows:[], _lvl: lvlName, _col: col};
+      parent.children.push(c);
+    }
     return c;
   }
 
   rows.forEach(r=>{
-    let p=root;
+    let p = root;
+    (p._rows ||= []).push(r);
 
-    if(levelsActive.length === 0){
-      root._rows = root._rows || [];
-      root._rows.push(r);
-      return;
-    }
+    if(levelsActive.length === 0) return;
 
-    for (const lvl of levelsActive){
+    for(let i=0; i<levelsActive.length; i++){
+      const lvl = levelsActive[i];
+      const col = i + 1;
       let v = (r[lvl] ?? "").toString().trim();
 
-      // ✅ Si es Cooperaciones técnicas y viene vacío: NO crea "(Sin dato)" y NO baja a ese nivel
+      // ✅ Si CT está vacío: no crees nodo, solo salta ese nivel (no dibuja el tramo)
       if(lvl === "Cooperaciones técnicas vinculadas" && !v){
-        (p._rows ||= []).push(r);
-        break;
+        continue;
       }
 
-      // normal para otros niveles
       if(!v) v="(Sin dato)";
 
-      p=getChild(p, v);
+      p = getChild(p, v, lvl, col);
       (p._rows ||= []).push(r);
     }
   });
@@ -637,6 +631,11 @@ let g = svg.append("g");
 
 let ROOT_HIER = null;
 let CURRENT_LEVELS_ACTIVE = [];
+
+function getDepthOfLevelName(levelName){
+  const idx = CURRENT_LEVELS_ACTIVE.indexOf(levelName);
+  return idx === -1 ? -1 : (idx + 1); // columna real
+}
 
 function updateOperLegendVisibility(){
   const show = CURRENT_LEVELS_ACTIVE.includes("Operaciones vinculadas");
@@ -653,11 +652,6 @@ let COL_GAP = COL_GAP_MIN;
 
 let COL_X = [];
 let WIDTH_BY_DEPTH = [];
-
-function getDepthOfLevelName(levelName){
-  const idx = CURRENT_LEVELS_ACTIVE.indexOf(levelName);
-  return idx === -1 ? -1 : (idx + 1);
-}
 
 function buildColumnMetrics(maxDepth, svgW){
   const objDepth = getDepthOfLevelName("Objetivo Estratégico");
@@ -687,8 +681,8 @@ function buildColumnMetrics(maxDepth, svgW){
 }
 
 function nodeWidth(d){
-  const depth = (typeof d === "number") ? d : d.depth;
-  return WIDTH_BY_DEPTH[depth] ?? BASE_NODE_WIDTH;
+  const col = (typeof d === "number") ? d : (d.data?._col ?? d.depth);
+  return WIDTH_BY_DEPTH[col] ?? BASE_NODE_WIDTH;
 }
 /* ========================================================= */
 
@@ -719,6 +713,7 @@ function renderColumnLabels(levelsActive){
     colLabelsEl.appendChild(div);
   });
 }
+
 function autoLiftLabels(){
   const labels = Array.from(colLabelsEl.querySelectorAll(".colLabel"))
     .filter(el => el.style.display !== "none");
@@ -808,6 +803,50 @@ function clearSelection(){
   g.selectAll(".link").classed("path", false);
 }
 
+/* ✅ Alineación por columna real (_col) */
+function applyColumnAlignment(selectedNode){
+  if(!selectedNode) return;
+
+  let cur = selectedNode;
+  const byCol = new Map();
+  while(cur){
+    const col = cur.data?._col ?? cur.depth;
+    byCol.set(col, cur);
+    cur = cur.parent;
+  }
+
+  const baseSel = BASE_POS.get(selectedNode);
+  const baseline = baseSel ? baseSel.x : selectedNode.x;
+
+  const colOffsets = new Map();
+  ROOT_HIER.descendants().forEach(n=>{
+    const col = n.data?._col ?? n.depth;
+    if(!colOffsets.has(col)) colOffsets.set(col, 0);
+  });
+
+  for(const [col, nodeInPath] of byCol.entries()){
+    const b = BASE_POS.get(nodeInPath);
+    if(!b) continue;
+    colOffsets.set(col, baseline - b.x);
+  }
+
+  ROOT_HIER.descendants().forEach(n=>{
+    const b = BASE_POS.get(n);
+    const col = n.data?._col ?? n.depth;
+    const off = colOffsets.get(col) || 0;
+    n._x = (b ? b.x : n.x) + off;
+    n._y = (b ? b.y : n.y);
+  });
+
+  g.selectAll(".node")
+    .transition().duration(520)
+    .attr("transform", d => `translate(${d._y},${d._x})`);
+
+  g.selectAll(".link")
+    .transition().duration(520)
+    .attr("d", d3.linkHorizontal().x(d => d._y).y(d => d._x));
+}
+
 function resetToBaseLayout(){
   if(!ROOT_HIER) return;
 
@@ -824,6 +863,48 @@ function resetToBaseLayout(){
   g.selectAll(".link")
     .transition().duration(380)
     .attr("d", d3.linkHorizontal().x(d=>d.y).y(d=>d.x));
+}
+
+function zoomToPath(pathNodesArr){
+  if(!pathNodesArr || pathNodesArr.length === 0) return;
+
+  let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+
+  for(const n of pathNodesArr){
+    const x = n._y ?? n.y;
+    const y = n._x ?? n.x;
+    const w = nodeWidth(n);
+    const h = (n.data._h || 160);
+
+    minX = Math.min(minX, x);
+    maxX = Math.max(maxX, x + w);
+    minY = Math.min(minY, y - h/2);
+    maxY = Math.max(maxY, y + h/2);
+  }
+
+  const boundsW = maxX - minX;
+  const boundsH = maxY - minY;
+
+  const svgW = svg.node().clientWidth;
+  const svgH = svg.node().clientHeight;
+
+  const pad = 220;
+  const scale = Math.min(2.6, Math.max(0.45,
+    0.95 / Math.max(boundsW / (svgW - pad), boundsH / (svgH - pad))
+  ));
+
+  const midX = minX + boundsW/2;
+  const midY = minY + boundsH/2;
+
+  const translate = [
+    svgW/2 - scale * midX,
+    svgH/2 - scale * midY
+  ];
+
+  svg.transition().duration(650).call(
+    zoom.transform,
+    d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale)
+  );
 }
 
 function fitToViewCentered(){
@@ -891,8 +972,9 @@ function computePrevStatusForNode(d){
 }
 
 function isOperacionNode(d){
-  const operDepth = getDepthOfLevelName("Operaciones vinculadas");
-  return operDepth !== -1 && d.depth === operDepth;
+  const operCol = getDepthOfLevelName("Operaciones vinculadas");
+  const col = d.data?._col ?? d.depth;
+  return operCol !== -1 && col === operCol;
 }
 
 function addPrevDotToOperacionNodes(nodesSelection){
@@ -949,12 +1031,15 @@ function render(treeData){
   const treeLayout = d3.tree().nodeSize([rowGap, 1]);
   treeLayout(ROOT_HIER);
 
-  const maxDepth = d3.max(ROOT_HIER.descendants(), d => d.depth) || 0;
+  // ✅ maxDepth por columna real (_col)
+  const maxDepth = d3.max(ROOT_HIER.descendants(), d => d.data?._col ?? d.depth) || 0;
   const svgW = svg.node().clientWidth;
   buildColumnMetrics(maxDepth, svgW);
 
+  // ✅ y por columna real (_col)
   ROOT_HIER.descendants().forEach(d=>{
-    d.y = COL_X[d.depth];
+    const col = d.data?._col ?? d.depth;
+    d.y = COL_X[col];
   });
 
   BASE_POS = new Map();
@@ -973,7 +1058,34 @@ function render(treeData){
     .data(ROOT_HIER.descendants())
     .join("g")
     .attr("class","node")
-    .attr("transform", d => `translate(${d.y},${d.x})`);
+    .attr("transform", d => `translate(${d.y},${d.x})`)
+    .on("click", (event,d)=>{
+      event.stopPropagation();
+
+      clearSelection();
+      d3.select(event.currentTarget).classed("selected", true);
+
+      let cur = d;
+      const pathNodes = [];
+      const pathSet = new Set();
+      while(cur){
+        pathNodes.push(cur);
+        pathSet.add(cur);
+        cur = cur.parent;
+      }
+      pathNodes.reverse();
+
+      g.selectAll(".node").classed("path", n => pathSet.has(n));
+      g.selectAll(".link").classed("path", l => pathSet.has(l.target));
+
+      applyColumnAlignment(d);
+      zoomToPath(pathNodes);
+    });
+
+  svg.on("click", ()=>{
+    clearSelection();
+    resetToBaseLayout();
+  });
 
   nodes.append("rect")
     .attr("x", 0)
@@ -1011,6 +1123,7 @@ function render(treeData){
   });
 
   addPrevDotToOperacionNodes(nodes);
+
   renderColumnLabels(CURRENT_LEVELS_ACTIVE);
   fitToViewCentered();
 
@@ -1036,7 +1149,6 @@ main();
 
 document.getElementById("renderBtn").onclick = renderAll;
 
-/* ✅ Reestablecer = estado inicial completo */
 document.getElementById("resetBtn").onclick = ()=>{
   resetFilters();
   resetLevelsToDefault();
@@ -1060,9 +1172,12 @@ fObjetivo.addEventListener("change", ()=>{
 
 window.addEventListener("resize", ()=>{
   if(ROOT_HIER){
-    const maxDepth = d3.max(ROOT_HIER.descendants(), d => d.depth) || 0;
+    const maxDepth = d3.max(ROOT_HIER.descendants(), d => d.data?._col ?? d.depth) || 0;
     buildColumnMetrics(maxDepth, svg.node().clientWidth);
-    ROOT_HIER.descendants().forEach(d=>{ d.y = COL_X[d.depth]; });
+    ROOT_HIER.descendants().forEach(d=>{
+      const col = d.data?._col ?? d.depth;
+      d.y = COL_X[col];
+    });
     resetToBaseLayout();
     fitToViewCentered();
   }else{
