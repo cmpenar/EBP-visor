@@ -127,15 +127,27 @@
     /* ✅ Filtros se estira, y con más espacio arriba para que NO se monte el texto */
     .filtersBox{
       margin-top:12px;
-      padding:16px 12px 12px;     /* ✅ más espacio arriba */
+      padding:16px 12px 26px;   /* ✅ más espacio abajo */
       border-radius:12px;
       background:var(--soft);
       border:1px dashed var(--softBorder);
-
+    
       flex:1 1 auto;
       display:flex;
       flex-direction:column;
+    
+      overflow:auto;            /* ✅ CLAVE: el contenido no se sale del box */
+      box-sizing:border-box;
       min-height:0;
+    }
+    
+    .btnRowOutside{
+      display:flex;
+      gap:10px;
+      margin-top:12px;
+      padding-top:12px;
+      border-top:none;
+      flex:0 0 auto;            /* ✅ evita que los botones “aplasten” al box */
     }
 
     .filtersTitle{
