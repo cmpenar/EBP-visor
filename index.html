@@ -25,11 +25,9 @@
       --soft:#f1f5f9;
       --softBorder:#cbd5e1;
 
-      /* ✅ FONDO CON IMAGEN EN EL ÁRBOL */
       --treeBgUrl: url("https://raw.githubusercontent.com/cmpenar/EBP-visor/main/Fondo.png");
       --treeBgOpacity: 0.2;
 
-      /* ✅ Colores del círculo */
       --dotYes:#16a34a;
       --dotNo:#7c3aed;
       --dotUnknown:#94a3b8;
@@ -88,6 +86,7 @@
       min-height:0;
     }
 
+    /* Panel izquierdo */
     .panel{
       background:var(--card);
       border:1px solid #e2e8f0;
@@ -97,7 +96,7 @@
       min-height:0;
     }
 
-    /* ✅ CLAVE: el panel izquierdo se vuelve "columna" para que Filtros se estire */
+    /* ✅ CLAVE: el panel izquierdo como columna con altura completa */
     .panel .inner{
       padding:12px;
       display:flex;
@@ -125,7 +124,7 @@
     }
     button:hover{filter:brightness(.95)}
 
-    /* ✅ CLAVE: Filtros ocupa todo el espacio restante hasta abajo */
+    /* ✅ El box de filtros se estira hasta abajo */
     .filtersBox{
       margin-top:12px;
       padding:12px;
@@ -150,13 +149,15 @@
       color:#52657b;
     }
 
-    .btnRow{
+    /* ✅ Botones FUERA del box y pegados abajo */
+    .btnRowOutside{
       display:flex;
       gap:10px;
-      margin-top:auto; /* ✅ botones pegados abajo del recuadro */
+      margin-top:12px;
       padding-top:12px;
+      border-top:3px solid #f5c400; /* ✅ la “línea amarilla” */
     }
-    .btnRow button{
+    .btnRowOutside button{
       width:100%;
       padding:12px 10px;
       border-radius:12px;
@@ -165,6 +166,7 @@
     }
     .btnSecondary{ background:#0b2e4a; }
 
+    /* Derecha */
     #rightFrame{
       background:var(--card);
       border:1px solid #e2e8f0;
@@ -407,7 +409,7 @@
       <label>Nivel 4</label><select id="lvl4"></select>
       <label>Nivel 5</label><select id="lvl5"></select>
 
-      <!-- ✅ Filtros se estira hasta abajo -->
+      <!-- ✅ Box se estira hasta abajo, pero SIN botones adentro -->
       <div class="filtersBox">
         <div class="filtersTitle">Filtros</div>
 
@@ -419,11 +421,12 @@
 
         <label>Objetivo Estratégico</label>
         <select id="fObjetivo"></select>
+      </div>
 
-        <div class="btnRow">
-          <button id="renderBtn">Renderizar</button>
-          <button id="resetBtn" class="btnSecondary">Reestablecer</button>
-        </div>
+      <!-- ✅ Botones afuera del box -->
+      <div class="btnRowOutside">
+        <button id="renderBtn">Renderizar</button>
+        <button id="resetBtn" class="btnSecondary">Reestablecer</button>
       </div>
     </div>
   </div>
@@ -479,13 +482,11 @@ const LABELS_ALLOWED = [
 
 const LEVEL_OPTIONS = [NONE, ...LABELS_ALLOWED];
 
-/* ✅ Renombres SOLO para UI (sin romper la data) */
+/* ✅ Renombres SOLO para UI */
 const DISPLAY_LABEL = {
   "Cooperaciones técnicas vinculadas": "Principales Cooperaciones Técnicas Vinculadas"
 };
-function displayName(key){
-  return DISPLAY_LABEL[key] || key;
-}
+function displayName(key){ return DISPLAY_LABEL[key] || key; }
 
 const lvlSelects = ["lvl1","lvl2","lvl3","lvl4","lvl5"].map(id=>document.getElementById(id));
 const colLabelsEl = document.getElementById("colLabels");
@@ -501,7 +502,7 @@ function fillSelect(select, options, selected){
   options.forEach(opt=>{
     const o=document.createElement("option");
     o.value=opt;
-    o.textContent = displayName(opt); // ✅ texto UI
+    o.textContent = displayName(opt);
     if(opt===selected) o.selected=true;
     select.appendChild(o);
   });
@@ -555,7 +556,7 @@ function updateFilterOptions(){
   if(!areaOpts.includes(FILTERS.area)) FILTERS.area = ALL;
   if(!objOpts.includes(FILTERS.obj)) FILTERS.obj = ALL;
 
-  // En filtros NO cambiamos texto, porque son valores de data (y se ven bien)
+  // OJO: estos selects son valores de data. Igual usamos fillSelect (solo cambia texto si hubiera mapping)
   fillSelect(fOperacion, operOpts, FILTERS.oper);
   fillSelect(fArea, areaOpts, FILTERS.area);
   fillSelect(fObjetivo, objOpts, FILTERS.obj);
@@ -622,6 +623,7 @@ let g = svg.append("g");
 let ROOT_HIER = null;
 let CURRENT_LEVELS_ACTIVE = [];
 
+/* ✅ Leyenda solo si se renderiza Operaciones */
 function updateOperLegendVisibility(){
   const show = CURRENT_LEVELS_ACTIVE.includes("Operaciones vinculadas");
   operLegendEl.style.display = show ? "block" : "none";
@@ -699,7 +701,7 @@ function renderColumnLabels(levelsActive){
     const div = document.createElement("div");
     div.className = "colLabel";
     div.dataset.depth = String(i+1);
-    div.innerHTML = `<span>${displayName(name)}</span>`; // ✅ título UI renombrado
+    div.innerHTML = `<span>${displayName(name)}</span>`;
     colLabelsEl.appendChild(div);
   });
 }
@@ -736,7 +738,6 @@ function positionColumnLabels(){
     if(!label) continue;
 
     const colCenterLayoutX = COL_X[depth] + (nodeWidth(depth) / 2);
-
     const screenX = t.applyX(colCenterLayoutX);
     const leftPx = svgOffsetX + screenX;
 
@@ -927,7 +928,7 @@ function fitToViewCentered(){
   });
 }
 
-/* ========================================================= */
+/* ======= CÍRCULO Previos ======= */
 const PREV_KEY = "Previo EBP 2024-2027";
 const DOT_R = 14;
 const DOT_PAD_X = 22;
@@ -1053,7 +1054,6 @@ function render(treeData){
     .attr("transform", d => `translate(${d.y},${d.x})`)
     .on("click", (event,d)=>{
       event.stopPropagation();
-
       clearSelection();
       d3.select(event.currentTarget).classed("selected", true);
 
@@ -1115,7 +1115,6 @@ function render(treeData){
   });
 
   addPrevDotToOperacionNodes(nodes);
-
   renderColumnLabels(CURRENT_LEVELS_ACTIVE);
   fitToViewCentered();
 
@@ -1123,7 +1122,7 @@ function render(treeData){
   setTimeout(()=>setNodeFontByZoom(d3.zoomTransform(svg.node()).k), 480);
 }
 
-/* ✅ UNA SOLA FUNCIÓN QUE RENDERIZA TODO (niveles + filtros) */
+/* ✅ Render único */
 function renderAll(){
   CURRENT_LEVELS_ACTIVE = getLevelsFromUI();
   const filtered = applyFilterToRows(ROWS_CACHE, FILTERS);
@@ -1141,6 +1140,7 @@ main();
 
 document.getElementById("renderBtn").onclick = renderAll;
 
+/* ✅ Reestablecer = estado inicial completo */
 document.getElementById("resetBtn").onclick = ()=>{
   resetFilters();
   resetLevelsToDefault();
