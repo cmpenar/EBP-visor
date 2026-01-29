@@ -27,12 +27,12 @@
 
       /* ✅ FONDO CON IMAGEN EN EL ÁRBOL */
       --treeBgUrl: url("https://raw.githubusercontent.com/cmpenar/EBP-visor/main/Fondo.png");
-      --treeBgOpacity: 0.2; /* ajusta 0.10–0.20 */
+      --treeBgOpacity: 0.2;
 
       /* ✅ Colores del círculo */
-      --dotYes:#16a34a;     /* verde */
-      --dotNo:#7c3aed;      /* morado */
-      --dotUnknown:#94a3b8; /* gris */
+      --dotYes:#16a34a;
+      --dotNo:#7c3aed;
+      --dotUnknown:#94a3b8;
     }
 
     html, body { height: 100%; overflow: hidden; }
@@ -43,7 +43,6 @@
       color:var(--ink);
     }
 
-    /* Header */
     header{
       padding:14px 16px;
       background:linear-gradient(180deg,#0b6a7d 0%, #0b3a68 100%);
@@ -89,7 +88,6 @@
       min-height:0;
     }
 
-    /* Panel izquierdo */
     .panel{
       background:var(--card);
       border:1px solid #e2e8f0;
@@ -98,7 +96,16 @@
       overflow:auto;
       min-height:0;
     }
-    .panel .inner{padding:12px;}
+
+    /* ✅ CLAVE: el panel izquierdo se vuelve "columna" para que Filtros se estire */
+    .panel .inner{
+      padding:12px;
+      display:flex;
+      flex-direction:column;
+      height:100%;
+      box-sizing:border-box;
+      min-height:0;
+    }
 
     label{display:block;font-size:12px;color:var(--muted);margin:10px 0 6px}
     select,button{
@@ -118,12 +125,18 @@
     }
     button:hover{filter:brightness(.95)}
 
+    /* ✅ CLAVE: Filtros ocupa todo el espacio restante hasta abajo */
     .filtersBox{
       margin-top:12px;
       padding:12px;
       border-radius:12px;
       background:var(--soft);
       border:1px dashed var(--softBorder);
+
+      flex:1 1 auto;
+      display:flex;
+      flex-direction:column;
+      min-height:0;
     }
     .filtersTitle{
       font-weight:900;
@@ -136,10 +149,12 @@
       font-size:12px;
       color:#52657b;
     }
+
     .btnRow{
       display:flex;
       gap:10px;
-      margin-top:12px;
+      margin-top:auto; /* ✅ botones pegados abajo del recuadro */
+      padding-top:12px;
     }
     .btnRow button{
       width:100%;
@@ -150,7 +165,6 @@
     }
     .btnSecondary{ background:#0b2e4a; }
 
-    /* ✅ Columna derecha: (Árbol arriba + franja inferior) dentro de un "marco" */
     #rightFrame{
       background:var(--card);
       border:1px solid #e2e8f0;
@@ -163,7 +177,6 @@
       flex-direction:column;
     }
 
-    /* ✅ Contenedor derecho */
     #right{
       height:100%;
       width:100%;
@@ -173,7 +186,6 @@
       min-height:0;
     }
 
-    /* ✅ Área del árbol */
     #treeArea{
       flex:1 1 auto;
       padding:12px;
@@ -182,7 +194,6 @@
       min-height:0;
     }
 
-    /* ✅ Franja inferior */
     #bottomBand{
       flex:0 0 auto;
       display:flex;
@@ -195,7 +206,6 @@
       min-width:0;
     }
 
-    /* ✅ Ejes transversales */
     .axesBox{
       flex:1 1 auto;
       background:transparent;
@@ -244,7 +254,6 @@
       min-height:44px;
     }
 
-    /* ✅ Leyenda de Operaciones */
     .operLegend{
       background:#ffffffcc;
       border:1px solid #e2e8f0;
@@ -273,9 +282,6 @@
     .operYes{ background: var(--dotYes); }
     .operNo { background: var(--dotNo); }
 
-    /* ============================
-       ✅ SVG WRAP + FONDO IMAGEN
-       ============================ */
     #svgWrap{
       position:relative;
       overflow:hidden;
@@ -354,10 +360,10 @@
       font-weight:900;
       opacity:.93;
       box-shadow:0 6px 16px rgba(15,23,42,.18);
-      max-width:420px;
+      max-width:520px;
       white-space:normal;
     }
-    .colLabel span{ white-space:normal; line-height:1.15; max-width:340px; }
+    .colLabel span{ white-space:normal; line-height:1.15; max-width:440px; }
 
     @media(max-width:1100px){
       #bottomBand{ flex-direction:column; }
@@ -401,6 +407,7 @@
       <label>Nivel 4</label><select id="lvl4"></select>
       <label>Nivel 5</label><select id="lvl5"></select>
 
+      <!-- ✅ Filtros se estira hasta abajo -->
       <div class="filtersBox">
         <div class="filtersTitle">Filtros</div>
 
@@ -413,7 +420,6 @@
         <label>Objetivo Estratégico</label>
         <select id="fObjetivo"></select>
 
-        <!-- ✅ SOLO DOS BOTONES -->
         <div class="btnRow">
           <button id="renderBtn">Renderizar</button>
           <button id="resetBtn" class="btnSecondary">Reestablecer</button>
@@ -456,7 +462,6 @@
   </div>
 </div>
 
-<!-- ✅ D3 correctamente cargado -->
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 
 <script>
@@ -471,7 +476,16 @@ const LABELS_ALLOWED = [
   "Cooperaciones técnicas vinculadas",
   "Indicador"
 ];
+
 const LEVEL_OPTIONS = [NONE, ...LABELS_ALLOWED];
+
+/* ✅ Renombres SOLO para UI (sin romper la data) */
+const DISPLAY_LABEL = {
+  "Cooperaciones técnicas vinculadas": "Principales Cooperaciones Técnicas Vinculadas"
+};
+function displayName(key){
+  return DISPLAY_LABEL[key] || key;
+}
 
 const lvlSelects = ["lvl1","lvl2","lvl3","lvl4","lvl5"].map(id=>document.getElementById(id));
 const colLabelsEl = document.getElementById("colLabels");
@@ -480,14 +494,14 @@ const svgWrapEl = document.getElementById("svgWrap");
 const fOperacion = document.getElementById("fOperacion");
 const fArea = document.getElementById("fArea");
 const fObjetivo = document.getElementById("fObjetivo");
-
 const operLegendEl = document.getElementById("operLegend");
 
 function fillSelect(select, options, selected){
   select.innerHTML = "";
   options.forEach(opt=>{
     const o=document.createElement("option");
-    o.value=opt; o.textContent=opt;
+    o.value=opt;
+    o.textContent = displayName(opt); // ✅ texto UI
     if(opt===selected) o.selected=true;
     select.appendChild(o);
   });
@@ -541,6 +555,7 @@ function updateFilterOptions(){
   if(!areaOpts.includes(FILTERS.area)) FILTERS.area = ALL;
   if(!objOpts.includes(FILTERS.obj)) FILTERS.obj = ALL;
 
+  // En filtros NO cambiamos texto, porque son valores de data (y se ven bien)
   fillSelect(fOperacion, operOpts, FILTERS.oper);
   fillSelect(fArea, areaOpts, FILTERS.area);
   fillSelect(fObjetivo, objOpts, FILTERS.obj);
@@ -551,7 +566,6 @@ function resetFilters(){
   updateFilterOptions();
 }
 
-/* ✅ Reset niveles exactamente como al abrir */
 function resetLevelsToDefault(){
   lvlSelects.forEach((sel, i) => {
     sel.value = DEFAULT_LEVELS[i] || NONE;
@@ -613,9 +627,7 @@ function updateOperLegendVisibility(){
   operLegendEl.style.display = show ? "block" : "none";
 }
 
-/* =========================================================
-   ✅ ANCHOS POR COLUMNA
-   ========================================================= */
+/* ========================================================= */
 const BASE_NODE_WIDTH = 560;
 const OBJ_NODE_WIDTH  = 860;
 const IMP_NODE_WIDTH  = 860;
@@ -687,7 +699,7 @@ function renderColumnLabels(levelsActive){
     const div = document.createElement("div");
     div.className = "colLabel";
     div.dataset.depth = String(i+1);
-    div.innerHTML = `<span>${name}</span>`;
+    div.innerHTML = `<span>${displayName(name)}</span>`; // ✅ título UI renombrado
     colLabelsEl.appendChild(div);
   });
 }
@@ -915,9 +927,7 @@ function fitToViewCentered(){
   });
 }
 
-/* =========================================================
-   ✅ CÍRCULO POR "Previo EBP 2024-2027" SOLO EN OPERACIONES
-   ========================================================= */
+/* ========================================================= */
 const PREV_KEY = "Previo EBP 2024-2027";
 const DOT_R = 14;
 const DOT_PAD_X = 22;
@@ -1002,7 +1012,6 @@ function addPrevDotToOperacionNodes(nodesSelection){
       return `${PREV_KEY}: (Sin dato)`;
     });
 }
-/* ========================================================= */
 
 function render(treeData){
   updateOperLegendVisibility();
@@ -1124,18 +1133,14 @@ function renderAll(){
 
 async function main(){
   ROWS_CACHE = await loadRows();
-
-  // Estado inicial EXACTO
   resetFilters();
   resetLevelsToDefault();
   renderAll();
 }
 main();
 
-/* ✅ BOTÓN ÚNICO: Renderizar */
 document.getElementById("renderBtn").onclick = renderAll;
 
-/* ✅ Reestablecer: deja TODO como al abrir (filtros + niveles + render) */
 document.getElementById("resetBtn").onclick = ()=>{
   resetFilters();
   resetLevelsToDefault();
@@ -1169,7 +1174,7 @@ window.addEventListener("resize", ()=>{
   }
 });
 
-// ---- Initial fit that matches "after zoom-out" view ----
+// ---- Initial fit ----
 let __didInitialFit = false;
 const __svgWrap = document.getElementById('svgWrap');
 
