@@ -96,7 +96,7 @@
       min-height:0;
     }
 
-    /* ✅ CLAVE: el panel izquierdo como columna con altura completa */
+    /* ✅ CLAVE: columna con altura completa */
     .panel .inner{
       padding:12px;
       display:flex;
@@ -124,10 +124,10 @@
     }
     button:hover{filter:brightness(.95)}
 
-    /* ✅ El box de filtros se estira hasta abajo */
+    /* ✅ Filtros se estira, y con más espacio arriba para que NO se monte el texto */
     .filtersBox{
       margin-top:12px;
-      padding:12px;
+      padding:16px 12px 12px;     /* ✅ más espacio arriba */
       border-radius:12px;
       background:var(--soft);
       border:1px dashed var(--softBorder);
@@ -137,25 +137,31 @@
       flex-direction:column;
       min-height:0;
     }
+
     .filtersTitle{
       font-weight:900;
-      margin:0 0 6px 0;
+      margin:0 0 10px 0;          /* ✅ separación con el contenido */
       color:#0f172a;
       font-size:14px;
+      line-height:1.2;            /* ✅ evita encimarse */
     }
+
     .filtersBox label{
       margin:10px 0 6px;
       font-size:12px;
       color:#52657b;
     }
 
-    /* ✅ Botones FUERA del box y pegados abajo */
+    /* ✅ extra: separa el primer label del título */
+    .filtersBox label:first-of-type{ margin-top:12px; }
+
+    /* ✅ Botones FUERA del box, SIN línea amarilla */
     .btnRowOutside{
       display:flex;
       gap:10px;
       margin-top:12px;
       padding-top:12px;
-      border-top:3px solid #f5c400; /* ✅ la “línea amarilla” */
+      border-top:none;            /* ✅ ya no hay línea amarilla */
     }
     .btnRowOutside button{
       width:100%;
@@ -409,7 +415,6 @@
       <label>Nivel 4</label><select id="lvl4"></select>
       <label>Nivel 5</label><select id="lvl5"></select>
 
-      <!-- ✅ Box se estira hasta abajo, pero SIN botones adentro -->
       <div class="filtersBox">
         <div class="filtersTitle">Filtros</div>
 
@@ -423,7 +428,7 @@
         <select id="fObjetivo"></select>
       </div>
 
-      <!-- ✅ Botones afuera del box -->
+      <!-- ✅ Botones fuera del box -->
       <div class="btnRowOutside">
         <button id="renderBtn">Renderizar</button>
         <button id="resetBtn" class="btnSecondary">Reestablecer</button>
@@ -479,10 +484,9 @@ const LABELS_ALLOWED = [
   "Cooperaciones técnicas vinculadas",
   "Indicador"
 ];
-
 const LEVEL_OPTIONS = [NONE, ...LABELS_ALLOWED];
 
-/* ✅ Renombres SOLO para UI */
+/* ✅ Solo UI */
 const DISPLAY_LABEL = {
   "Cooperaciones técnicas vinculadas": "Principales Cooperaciones Técnicas Vinculadas"
 };
@@ -556,7 +560,6 @@ function updateFilterOptions(){
   if(!areaOpts.includes(FILTERS.area)) FILTERS.area = ALL;
   if(!objOpts.includes(FILTERS.obj)) FILTERS.obj = ALL;
 
-  // OJO: estos selects son valores de data. Igual usamos fillSelect (solo cambia texto si hubiera mapping)
   fillSelect(fOperacion, operOpts, FILTERS.oper);
   fillSelect(fArea, areaOpts, FILTERS.area);
   fillSelect(fObjetivo, objOpts, FILTERS.obj);
@@ -566,7 +569,6 @@ function resetFilters(){
   FILTERS = {oper:ALL, area:ALL, obj:ALL};
   updateFilterOptions();
 }
-
 function resetLevelsToDefault(){
   lvlSelects.forEach((sel, i) => {
     sel.value = DEFAULT_LEVELS[i] || NONE;
@@ -623,13 +625,11 @@ let g = svg.append("g");
 let ROOT_HIER = null;
 let CURRENT_LEVELS_ACTIVE = [];
 
-/* ✅ Leyenda solo si se renderiza Operaciones */
 function updateOperLegendVisibility(){
   const show = CURRENT_LEVELS_ACTIVE.includes("Operaciones vinculadas");
   operLegendEl.style.display = show ? "block" : "none";
 }
 
-/* ========================================================= */
 const BASE_NODE_WIDTH = 560;
 const OBJ_NODE_WIDTH  = 860;
 const IMP_NODE_WIDTH  = 860;
@@ -676,7 +676,6 @@ function nodeWidth(d){
   const depth = (typeof d === "number") ? d : d.depth;
   return WIDTH_BY_DEPTH[depth] ?? BASE_NODE_WIDTH;
 }
-/* ========================================================= */
 
 let BASE_POS = new Map();
 
@@ -795,46 +794,6 @@ function clearSelection(){
   g.selectAll(".link").classed("path", false);
 }
 
-function applyColumnAlignment(selectedNode){
-  if(!selectedNode) return;
-
-  let cur = selectedNode;
-  const byDepth = new Map();
-  while(cur){
-    byDepth.set(cur.depth, cur);
-    cur = cur.parent;
-  }
-
-  const baseSel = BASE_POS.get(selectedNode);
-  const baseline = baseSel ? baseSel.x : selectedNode.x;
-
-  const depthOffsets = new Map();
-  ROOT_HIER.descendants().forEach(n=>{
-    if(!depthOffsets.has(n.depth)) depthOffsets.set(n.depth, 0);
-  });
-
-  for(const [depth, nodeInPath] of byDepth.entries()){
-    const b = BASE_POS.get(nodeInPath);
-    if(!b) continue;
-    depthOffsets.set(depth, baseline - b.x);
-  }
-
-  ROOT_HIER.descendants().forEach(n=>{
-    const b = BASE_POS.get(n);
-    const off = depthOffsets.get(n.depth) || 0;
-    n._x = (b ? b.x : n.x) + off;
-    n._y = (b ? b.y : n.y);
-  });
-
-  g.selectAll(".node")
-    .transition().duration(520)
-    .attr("transform", d => `translate(${d._y},${d._x})`);
-
-  g.selectAll(".link")
-    .transition().duration(520)
-    .attr("d", d3.linkHorizontal().x(d => d._y).y(d => d._x));
-}
-
 function resetToBaseLayout(){
   if(!ROOT_HIER) return;
 
@@ -851,48 +810,6 @@ function resetToBaseLayout(){
   g.selectAll(".link")
     .transition().duration(380)
     .attr("d", d3.linkHorizontal().x(d=>d.y).y(d=>d.x));
-}
-
-function zoomToPath(pathNodesArr){
-  if(!pathNodesArr || pathNodesArr.length === 0) return;
-
-  let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
-
-  for(const n of pathNodesArr){
-    const x = n._y ?? n.y;
-    const y = n._x ?? n.x;
-    const w = nodeWidth(n);
-    const h = (n.data._h || 160);
-
-    minX = Math.min(minX, x);
-    maxX = Math.max(maxX, x + w);
-    minY = Math.min(minY, y - h/2);
-    maxY = Math.max(maxY, y + h/2);
-  }
-
-  const boundsW = maxX - minX;
-  const boundsH = maxY - minY;
-
-  const svgW = svg.node().clientWidth;
-  const svgH = svg.node().clientHeight;
-
-  const pad = 220;
-  const scale = Math.min(2.6, Math.max(0.45,
-    0.95 / Math.max(boundsW / (svgW - pad), boundsH / (svgH - pad))
-  ));
-
-  const midX = minX + boundsW/2;
-  const midY = minY + boundsH/2;
-
-  const translate = [
-    svgW/2 - scale * midX,
-    svgH/2 - scale * midY
-  ];
-
-  svg.transition().duration(650).call(
-    zoom.transform,
-    d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale)
-  );
 }
 
 function fitToViewCentered(){
@@ -928,7 +845,7 @@ function fitToViewCentered(){
   });
 }
 
-/* ======= CÍRCULO Previos ======= */
+/* ======= Previos en Operaciones ======= */
 const PREV_KEY = "Previo EBP 2024-2027";
 const DOT_R = 14;
 const DOT_PAD_X = 22;
@@ -966,7 +883,6 @@ function isOperacionNode(d){
 
 function addPrevDotToOperacionNodes(nodesSelection){
   const opNodes = nodesSelection.filter(d => isOperacionNode(d));
-
   const defs = svg.select("defs").empty() ? svg.append("defs") : svg.select("defs");
 
   defs.selectAll("linearGradient#prevMixGrad").data([1]).join("linearGradient")
@@ -1003,14 +919,6 @@ function addPrevDotToOperacionNodes(nodesSelection){
       if(st === "NO") return no;
       if(st === "MIX") return "url(#prevMixGrad)";
       return unk;
-    })
-    .append("title")
-    .text(d => {
-      const st = computePrevStatusForNode(d);
-      if(st === "SI") return `${PREV_KEY}: SI`;
-      if(st === "NO") return `${PREV_KEY}: NO`;
-      if(st === "MIX") return `${PREV_KEY}: SI y NO (mezclado)`;
-      return `${PREV_KEY}: (Sin dato)`;
     });
 }
 
@@ -1051,33 +959,7 @@ function render(treeData){
     .data(ROOT_HIER.descendants())
     .join("g")
     .attr("class","node")
-    .attr("transform", d => `translate(${d.y},${d.x})`)
-    .on("click", (event,d)=>{
-      event.stopPropagation();
-      clearSelection();
-      d3.select(event.currentTarget).classed("selected", true);
-
-      let cur = d;
-      const pathNodes = [];
-      const pathSet = new Set();
-      while(cur){
-        pathNodes.push(cur);
-        pathSet.add(cur);
-        cur = cur.parent;
-      }
-      pathNodes.reverse();
-
-      g.selectAll(".node").classed("path", n => pathSet.has(n));
-      g.selectAll(".link").classed("path", l => pathSet.has(l.target));
-
-      applyColumnAlignment(d);
-      zoomToPath(pathNodes);
-    });
-
-  svg.on("click", ()=>{
-    clearSelection();
-    resetToBaseLayout();
-  });
+    .attr("transform", d => `translate(${d.y},${d.x})`);
 
   nodes.append("rect")
     .attr("x", 0)
@@ -1139,8 +1021,6 @@ async function main(){
 main();
 
 document.getElementById("renderBtn").onclick = renderAll;
-
-/* ✅ Reestablecer = estado inicial completo */
 document.getElementById("resetBtn").onclick = ()=>{
   resetFilters();
   resetLevelsToDefault();
