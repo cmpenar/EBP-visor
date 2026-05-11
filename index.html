@@ -18,9 +18,9 @@
       --topLabelsSpace: 44px;
       --sel:#0b2e4a;
 
-      --nodeFont: 35px;
-      --nodeFontMin: 35px;
-      --nodeFontMax: 51px;
+      --nodeFont: 16px;
+      --nodeFontMin: 10px;
+      --nodeFontMax: 22px;
 
       --soft:#f1f5f9;
       --softBorder:#cbd5e1;
@@ -514,10 +514,121 @@ function uniqSorted(arr){
   return Array.from(new Set(arr.filter(Boolean))).sort((a,b)=>a.localeCompare(b,'es'));
 }
 
+const DATA_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQkuqdbPt0_PwQW6ahkFsxBva0Dnba-InEas9f5sFBPfpAZKV65J2RleCK0TOXYlA/pub?gid=248871317&single=true&output=csv";
+const DATA_GVIZ_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQkuqdbPt0_PwQW6ahkFsxBva0Dnba-InEas9f5sFBPfpAZKV65J2RleCK0TOXYlA/gviz/tq?gid=248871317";
+
+function normalizeTextKey(value){
+  return (value ?? "")
+    .toString()
+    .replace(/^\uFEFF/, "")
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+const CANONICAL_HEADERS = {
+  "area prioritaria": "Área Prioritaria",
+  "objetivo estrategico": "Objetivo Estratégico",
+  "impacto esperado": "Impacto Esperado",
+  "operaciones vinculadas": "Operaciones vinculadas",
+  "operacion vinculada": "Operaciones vinculadas",
+  "cooperaciones tecnicas vinculadas": "Cooperaciones técnicas vinculadas",
+  "principales cooperaciones tecnicas vinculadas": "Cooperaciones técnicas vinculadas",
+  "indicador": "Indicador",
+  "previo ebp 2024-2027": "Previo EBP 2024-2027",
+  "previo estrategia 2024-2027": "Previo EBP 2024-2027"
+};
+
+function canonicalHeader(header){
+  const clean = (header ?? "").toString().replace(/^\uFEFF/, "").trim().replace(/\s+/g, " ");
+  return CANONICAL_HEADERS[normalizeTextKey(clean)] || clean;
+}
+
+function cleanRows(rows){
+  return rows.map(row => {
+    const clean = {};
+    for (const [key, value] of Object.entries(row)) {
+      const cleanKey = canonicalHeader(key);
+      clean[cleanKey] = (value ?? "").toString().trim();
+    }
+    return clean;
+  }).filter(r => Object.values(r).some(v => (v ?? "").toString().trim() !== ""));
+}
+
+function loadRowsFromGviz(){
+  return new Promise((resolve, reject)=>{
+    const callbackName = "__gsheetCallback_" + Date.now() + "_" + Math.floor(Math.random()*100000);
+    const script = document.createElement("script");
+    const timeout = setTimeout(()=>{
+      cleanup();
+      reject(new Error("Tiempo de carga agotado al leer Google Sheets."));
+    }, 15000);
+
+    function cleanup(){
+      clearTimeout(timeout);
+      script.remove();
+      try{ delete window[callbackName]; }catch(e){ window[callbackName] = undefined; }
+    }
+
+    window[callbackName] = (payload)=>{
+      try{
+        const table = payload?.table;
+        if(!table || !Array.isArray(table.rows)) throw new Error("Respuesta inválida de Google Sheets.");
+
+        let headers = (table.cols || []).map((c, i)=>{
+          const label = (c.label || c.id || "").toString().trim();
+          return label || `Columna ${i+1}`;
+        });
+
+        let dataRows = table.rows || [];
+
+        // Si Google no entrega nombres de columnas reales, usa la primera fila como encabezado.
+        const genericHeaders = headers.every(h => /^([A-Z]+|Columna \d+)$/i.test(h));
+        if(genericHeaders && dataRows.length){
+          headers = (dataRows[0].c || []).map((cell, i)=> (cell?.f ?? cell?.v ?? `Columna ${i+1}`).toString().trim());
+          dataRows = dataRows.slice(1);
+        }
+
+        const rows = dataRows.map(row=>{
+          const obj = {};
+          headers.forEach((h, i)=>{
+            const cell = row.c?.[i];
+            obj[h] = (cell?.f ?? cell?.v ?? "").toString().trim();
+          });
+          return obj;
+        });
+
+        cleanup();
+        resolve(cleanRows(rows));
+      }catch(err){
+        cleanup();
+        reject(err);
+      }
+    };
+
+    script.onerror = ()=>{
+      cleanup();
+      reject(new Error("No se pudo cargar Google Sheets mediante GViz."));
+    };
+
+    script.src = DATA_GVIZ_URL + "&tqx=" + encodeURIComponent("responseHandler:" + callbackName + ";out:json") + "&tq=" + encodeURIComponent("select *") + "&cacheBust=" + Date.now();
+    document.head.appendChild(script);
+  });
+}
+
 async function loadRows(){
-  const res = await fetch("./data.json");
-  const data = await res.json();
-  return data.rows;
+  // Primero intenta CSV directo; si el navegador lo bloquea por CORS, usa GViz/JSONP.
+  try{
+    const rows = await d3.csv(DATA_CSV_URL + "&cacheBust=" + Date.now());
+    const cleaned = cleanRows(rows);
+    if(cleaned.length) return cleaned;
+  }catch(err){
+    console.warn("CSV directo no disponible, se intenta GViz/JSONP", err);
+  }
+
+  return await loadRowsFromGviz();
 }
 
 const ALL = "(Todos)";
@@ -689,10 +800,10 @@ function nodeWidth(d){
 let BASE_POS = new Map();
 
 function setNodeFontByZoom(k){
-  const base = 30;
+  const base = 16;
   const scaled = base * k;
-  const min = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--nodeFontMin")) || 24;
-  const max = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--nodeFontMax")) || 44;
+  const min = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--nodeFontMin")) || 10;
+  const max = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--nodeFontMax")) || 22;
   const clamped = Math.max(min, Math.min(max, scaled));
   document.documentElement.style.setProperty("--nodeFont", clamped.toFixed(1) + "px");
 }
@@ -1027,7 +1138,7 @@ function render(treeData){
 
   ROOT_HIER = d3.hierarchy(treeData);
 
-  const rowGap = 190;
+  const rowGap = 260;
   const treeLayout = d3.tree().nodeSize([rowGap, 1]);
   treeLayout(ROOT_HIER);
 
