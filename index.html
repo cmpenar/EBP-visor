@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="es">
 <head>
@@ -382,9 +383,6 @@
       <label>Objetivo Estratégico</label>
       <select id="fObjetivo"></select>
 
-      <label>Sub-objetivo Estratégico</label>
-      <select id="fSubObjetivo"></select>
-
       <label>Tipo de operación</label>
       <select id="fTipo"></select>
     </div>
@@ -437,14 +435,12 @@ const PREV_KEY = "Previo EBP 2024-2027";
 
 const DISPLAY_LABEL = {
   "Cooperaciones técnicas vinculadas": "Principales Cooperaciones Técnicas Vinculadas",
-  "Sub-objetivo Estratégico": "Sub-objetivo Estratégico"
 };
 
 const LEVEL_OPTIONS = [
   NONE,
   "Área Prioritaria",
   "Objetivo Estratégico",
-  "Sub-objetivo Estratégico",
   "Impacto Esperado",
   "Operaciones vinculadas",
   "Cooperaciones técnicas vinculadas",
@@ -454,7 +450,7 @@ const LEVEL_OPTIONS = [
 const DEFAULT_LEVELS = [
   "Área Prioritaria",
   "Objetivo Estratégico",
-  "Sub-objetivo Estratégico",
+  NONE,
   NONE,
   NONE
 ];
@@ -470,12 +466,11 @@ const filterEls = {
   oper: document.getElementById("fOperacion"),
   area: document.getElementById("fArea"),
   obj: document.getElementById("fObjetivo"),
-  sub: document.getElementById("fSubObjetivo"),
   tipo: document.getElementById("fTipo")
 };
 
 let ROWS = [];
-let FILTERS = {oper:ALL, area:ALL, obj:ALL, sub:ALL, tipo:ALL};
+let FILTERS = {oper:ALL, area:ALL, obj:ALL, tipo:ALL};
 let CURRENT_LEVELS = [];
 let rootHier = null;
 let g = svg.append("g");
@@ -529,7 +524,6 @@ function applyFilters(rows, f){
     if(f.oper !== ALL && String(r["Operaciones vinculadas"] ?? "").trim() !== f.oper) return false;
     if(f.area !== ALL && String(r["Área Prioritaria"] ?? "").trim() !== f.area) return false;
     if(f.obj  !== ALL && String(r["Objetivo Estratégico"] ?? "").trim() !== f.obj) return false;
-    if(f.sub  !== ALL && String(r["Sub-objetivo Estratégico"] ?? "").trim() !== f.sub) return false;
     if(f.tipo !== ALL && String(r["Tipo de operación"] ?? "").trim() !== f.tipo) return false;
     return true;
   });
@@ -541,14 +535,12 @@ function updateFilterOptions(){
   const rowsForOper = applyFilters(base, {...FILTERS, oper:ALL});
   const rowsForArea = applyFilters(base, {...FILTERS, area:ALL});
   const rowsForObj  = applyFilters(base, {...FILTERS, obj:ALL});
-  const rowsForSub  = applyFilters(base, {...FILTERS, sub:ALL});
   const rowsForTipo = applyFilters(base, {...FILTERS, tipo:ALL});
 
   const opts = {
     oper:[ALL, ...uniqSorted(rowsForOper.map(r=>r["Operaciones vinculadas"]))],
     area:[ALL, ...uniqSorted(rowsForArea.map(r=>r["Área Prioritaria"]))],
     obj:[ALL, ...uniqSorted(rowsForObj.map(r=>r["Objetivo Estratégico"]))],
-    sub:[ALL, ...uniqSorted(rowsForSub.map(r=>r["Sub-objetivo Estratégico"]))],
     tipo:[ALL, ...uniqSorted(rowsForTipo.map(r=>r["Tipo de operación"]))]
   };
 
@@ -599,7 +591,6 @@ function nodeSize(d){
   if(col === 0) return {w:250, h:86};
   if(lvl === "Área Prioritaria") return {w:320, h:72};
   if(lvl === "Objetivo Estratégico") return {w:330, h:66};
-  if(lvl === "Sub-objetivo Estratégico") return {w:335, h:58};
   if(lvl === "Operaciones vinculadas") return {w:355, h:72};
   return {w:330, h:64};
 }
@@ -709,7 +700,6 @@ function render(){
     const lvl = CURRENT_LEVELS[i-1];
     if(lvl === "Área Prioritaria") return 320;
     if(lvl === "Objetivo Estratégico") return 330;
-    if(lvl === "Sub-objetivo Estratégico") return 335;
     if(lvl === "Operaciones vinculadas") return 355;
     return 330;
   });
@@ -842,7 +832,7 @@ function zoomToNodes(nodes){
 }
 
 function resetAll(){
-  FILTERS = {oper:ALL, area:ALL, obj:ALL, sub:ALL, tipo:ALL};
+  FILTERS = {oper:ALL, area:ALL, obj:ALL, tipo:ALL};
   lvlSelects.forEach((sel,i)=>sel.value = DEFAULT_LEVELS[i] || NONE);
   updateFilterOptions();
   render();
