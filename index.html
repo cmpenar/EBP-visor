@@ -198,15 +198,19 @@
 
     .topLabels{
       position:absolute;
-      inset:10px 0 auto 0;
-      height:42px;
-      z-index:4;
+      left:0;
+      right:0;
+      top:12px;
+      height:58px;
+      z-index:10;
       pointer-events:none;
+      overflow:visible;
     }
     .topLabel{
       position:absolute;
       transform:translateX(-50%);
       top:0;
+      display:block;
       background:#182234;
       color:white;
       padding:10px 18px;
@@ -406,11 +410,11 @@
       <div id="operLegend" class="legend">
         <div class="legendRow">
           <span class="legendDot yes"></span>
-          <span>Operaciones aprobadas <b>antes</b> del lanzamiento de la Estrategia 2024-2027</span>
+          <span><b>Verde:</b> operación aprobada <b>antes</b> del lanzamiento de la EBP 2024-2027</span>
         </div>
         <div class="legendRow">
           <span class="legendDot no"></span>
-          <span>Operaciones aprobadas <b>después</b> del lanzamiento de la Estrategia 2024-2027</span>
+          <span><b>Morado:</b> operación aprobada <b>después</b> del lanzamiento de la EBP 2024-2027</span>
         </div>
       </div>
 
@@ -633,21 +637,75 @@ function wrapText(text, width){
   });
 }
 
+function normalizeKeyName(k){
+  return String(k ?? "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .toLowerCase()
+    .replace(/\s+/g," ")
+    .trim();
+}
+
+/*
+  Regla antes/después:
+  - SI / SÍ / ANTES / PREVIO / ANTERIOR = antes del lanzamiento de la EBP.
+  - NO / DESPUÉS / DESPUES / POSTERIOR = después del lanzamiento de la EBP.
+  Además, busca automáticamente la columna correcta aunque el encabezado venga con
+  espacios, tildes o una redacción ligeramente distinta.
+*/
 function normPrev(v){
-  const s = String(v ?? "").trim().toUpperCase();
-  if(s === "SI" || s === "SÍ") return "SI";
-  if(s === "NO") return "NO";
+  const s = String(v ?? "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .trim()
+    .toUpperCase();
+
+  if(["SI","S","YES","TRUE","1","ANTES","PREVIO","PREVIA","ANTERIOR"].includes(s)) return "SI";
+  if(["NO","N","FALSE","0","DESPUES","POSTERIOR","POSTERIOR EBP"].includes(s)) return "NO";
+
+  if(s.includes("ANTES") || s.includes("PREV")) return "SI";
+  if(s.includes("DESPUES") || s.includes("POST")) return "NO";
+
+  return "";
+}
+
+function getPrevValueFromRow(row){
+  if(!row) return "";
+
+  // 1) Intento exacto.
+  if(Object.prototype.hasOwnProperty.call(row, PREV_KEY)){
+    const exact = normPrev(row[PREV_KEY]);
+    if(exact) return exact;
+  }
+
+  // 2) Intento flexible por nombre de columna.
+  const keys = Object.keys(row);
+  const preferred = keys.find(k=>{
+    const nk = normalizeKeyName(k);
+    return (
+      (nk.includes("previo") && nk.includes("ebp")) ||
+      (nk.includes("antes") && nk.includes("despues")) ||
+      (nk.includes("lanzamiento") && nk.includes("ebp")) ||
+      (nk.includes("previo") && nk.includes("2024"))
+    );
+  });
+
+  if(preferred){
+    const val = normPrev(row[preferred]);
+    if(val) return val;
+  }
+
   return "";
 }
 
 function prevStatus(d){
   const rows = d.data._rows || [];
   let si=false, no=false;
+
   rows.forEach(r=>{
-    const v = normPrev(r[PREV_KEY]);
+    const v = getPrevValueFromRow(r);
     if(v==="SI") si=true;
     if(v==="NO") no=true;
   });
+
   if(si && !no) return "SI";
   if(no && !si) return "NO";
   if(si && no) return "MIX";
@@ -665,19 +723,28 @@ function renderTopLabels(levels, colX, widths){
     const div = document.createElement("div");
     div.className = "topLabel";
     div.dataset.col = String(col);
+    div.dataset.baseX = String(colX[col] + widths[col]/2);
     div.textContent = displayName(name);
-    div.style.left = (colX[col] + widths[col]/2) + "px";
     topLabels.appendChild(div);
   });
-  positionTopLabels();
+  requestAnimationFrame(positionTopLabels);
 }
 
 function positionTopLabels(){
   const t = d3.zoomTransform(svg.node());
+  const areaW = treeArea.clientWidth || 0;
   const labels = topLabels.querySelectorAll(".topLabel");
+
   labels.forEach(label=>{
-    const baseLeft = parseFloat(label.style.left);
-    label.style.left = t.applyX(baseLeft) + "px";
+    const baseX = Number(label.dataset.baseX || 0);
+    let x = t.applyX(baseX);
+
+    // Mantiene visible el título aunque el ajuste inicial acerque o aleje el árbol.
+    const half = label.offsetWidth / 2 || 70;
+    x = Math.max(half + 10, Math.min(areaW - half - 10, x));
+
+    label.style.left = x + "px";
+    label.style.display = "block";
   });
 }
 
@@ -781,8 +848,8 @@ function render(){
 
   nodes.filter(isOperacionNode).append("circle")
     .attr("class","prevDot")
-    .attr("r",7.5)
-    .attr("cx",d=>nodeSize(d).w-17)
+    .attr("r",9)
+    .attr("cx",d=>nodeSize(d).w-18)
     .attr("cy",0)
     .attr("fill",d=>{
       const st = prevStatus(d);
@@ -820,7 +887,8 @@ function fitToView(){
   svg.transition().duration(350).call(
     zoom.transform,
     d3.zoomIdentity.translate(tx,ty).scale(scale)
-  );
+  ).on("end", positionTopLabels);
+  setTimeout(positionTopLabels, 380);
 }
 
 function zoomToNodes(nodes){
