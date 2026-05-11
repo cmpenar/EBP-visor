@@ -19,9 +19,9 @@
       --topLabelsSpace: 44px;
       --sel:#0b2e4a;
 
-      --nodeFont: 18px;
-      --nodeFontMin: 14px;
-      --nodeFontMax: 24px;
+      --nodeFont: 16px;
+      --nodeFontMin: 13px;
+      --nodeFontMax: 20px;
 
       --soft:#f1f5f9;
       --softBorder:#cbd5e1;
@@ -337,14 +337,14 @@
       fill:#0f172a;
       font-weight:900;
     }
-    .link{ fill:none; stroke:#64748b; stroke-width:1.35; opacity:.38 }
+    .link{ fill:none; stroke:#64748b; stroke-width:1.05; opacity:.30 }
     .node:hover rect{ stroke:var(--accent); stroke-width:2 }
 
     .node.selected rect,
     .node.path rect{ fill:var(--sel); stroke:var(--sel); }
     .node.selected .title,
     .node.path .title{ fill:#fff; }
-    .link.path{ stroke:var(--sel); stroke-width:1.8; opacity:.75; }
+    .link.path{ stroke:var(--sel); stroke-width:1.5; opacity:.65; }
 
     .colLabels{
       position:absolute;
@@ -473,11 +473,12 @@
 
 <script>
 const NONE = "(Ninguno)";
-const DEFAULT_LEVELS = ["Área Prioritaria","Objetivo Estratégico", NONE, NONE, NONE];
+const DEFAULT_LEVELS = ["Área Prioritaria","Objetivo Estratégico","Sub-objetivo Estratégico", NONE, NONE];
 
 const LABELS_ALLOWED = [
   "Área Prioritaria",
   "Objetivo Estratégico",
+  "Sub-objetivo Estratégico",
   "Impacto Esperado",
   "Operaciones vinculadas",
   "Cooperaciones técnicas vinculadas",
@@ -533,6 +534,11 @@ function normalizeTextKey(value){
 const CANONICAL_HEADERS = {
   "area prioritaria": "Área Prioritaria",
   "objetivo estrategico": "Objetivo Estratégico",
+  "sub-objetivo estrategico": "Sub-objetivo Estratégico",
+  "sub objetivo estrategico": "Sub-objetivo Estratégico",
+  "subobjetivo estrategico": "Sub-objetivo Estratégico",
+  "linea de accion": "Sub-objetivo Estratégico",
+  "linea accion": "Sub-objetivo Estratégico",
   "impacto esperado": "Impacto Esperado",
   "operaciones vinculadas": "Operaciones vinculadas",
   "operacion vinculada": "Operaciones vinculadas",
@@ -701,7 +707,7 @@ function getLevelsFromUI(){
 
 /* ✅ CLAVE: saltar CT vacía SIN eliminar rama, manteniendo columnas con _col */
 function buildTree(rows, levelsActive){
-  const root = {name:"EBP Costa Rica 2024-2027", children:[], _col: 0, _lvl: "__root__", _rows:[]};
+  const root = {name:"Estrategia de País BID 2024-2027 Costa Rica", children:[], _col: 0, _lvl: "__root__", _rows:[]};
 
   function getChild(parent, name, lvlName, col){
     if(!parent.children) parent.children=[];
@@ -724,12 +730,10 @@ function buildTree(rows, levelsActive){
       const col = i + 1;
       let v = (r[lvl] ?? "").toString().trim();
 
-      // ✅ Si CT está vacío: no crees nodo, solo salta ese nivel (no dibuja el tramo)
-      if(lvl === "Cooperaciones técnicas vinculadas" && !v){
+      // Si el nivel viene vacío, no crea una caja artificial; mantiene la rama limpia.
+      if(!v){
         continue;
       }
-
-      if(!v) v="(Sin dato)";
 
       p = getChild(p, v, lvl, col);
       (p._rows ||= []).push(r);
@@ -756,11 +760,11 @@ function updateOperLegendVisibility(){
 }
 
 /* ========================================================= */
-const BASE_NODE_WIDTH = 520;
-const OBJ_NODE_WIDTH  = 650;
-const IMP_NODE_WIDTH  = 650;
-const COL_GAP_MIN = 170;
-const COL_GAP_MAX = 360;
+const BASE_NODE_WIDTH = 315;
+const OBJ_NODE_WIDTH  = 350;
+const IMP_NODE_WIDTH  = 360;
+const COL_GAP_MIN = 150;
+const COL_GAP_MAX = 250;
 let COL_GAP = COL_GAP_MIN;
 
 let COL_X = [];
@@ -779,7 +783,7 @@ function buildColumnMetrics(maxDepth, svgW){
 
   const nCols = (maxDepth + 1);
   const sumW = WIDTH_BY_DEPTH.reduce((a,b)=>a+b, 0);
-  const usableW = Math.max(1, (svgW || 0) - 120);
+  const usableW = Math.max(1, (svgW || 0) - 180);
   if(nCols > 1 && usableW > sumW){
     const gap = (usableW - sumW) / (nCols - 1);
     COL_GAP = Math.max(COL_GAP_MIN, Math.min(COL_GAP_MAX, gap));
@@ -802,10 +806,10 @@ function nodeWidth(d){
 let BASE_POS = new Map();
 
 function setNodeFontByZoom(k){
-  const base = 18;
+  const base = 16;
   const scaled = base * k;
-  const min = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--nodeFontMin")) || 14;
-  const max = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--nodeFontMax")) || 24;
+  const min = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--nodeFontMin")) || 13;
+  const max = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--nodeFontMax")) || 20;
   const clamped = Math.max(min, Math.min(max, scaled));
   document.documentElement.style.setProperty("--nodeFont", clamped.toFixed(1) + "px");
 }
@@ -1027,20 +1031,20 @@ function fitToViewCentered(){
   const svgW = svg.node().clientWidth;
   const svgH = svg.node().clientHeight;
 
-  const pad = 90;
-  const usableW = Math.max(1, svgW - pad*2);
-  const usableH = Math.max(1, svgH - pad*2);
+  const padX = 34;
+  const padTop = 80;
+  const padBottom = 42;
+  const usableW = Math.max(1, svgW - padX*2);
+  const usableH = Math.max(1, svgH - padTop - padBottom);
 
   const maxK = (zoom.scaleExtent ? zoom.scaleExtent()[1] : 3.2) || 3.2;
 
-  // Vista inicial legible: no reduce todo el árbol hasta volverlo ilegible.
-  // Deja el diagrama con zoom suficiente y permite navegar con arrastre/rueda.
-  const fitScale = 0.98 / Math.max(bounds.width / usableW, bounds.height / usableH);
-  const scale = Math.min(maxK, Math.max(0.78, Math.min(1.05, fitScale)));
+  // Ajuste inicial tipo mockup: visible completo, legible y con aire entre columnas.
+  const fitScale = 0.96 / Math.max(bounds.width / usableW, bounds.height / usableH);
+  const scale = Math.min(maxK, Math.max(0.62, Math.min(1.08, fitScale)));
 
-  // Ancla la lectura hacia la izquierda, manteniendo títulos visibles.
-  const translateX = pad - scale * bounds.x;
-  const translateY = svgH/2 - scale * (bounds.y + bounds.height / 2);
+  const translateX = padX - scale * bounds.x;
+  const translateY = padTop + usableH/2 - scale * (bounds.y + bounds.height / 2);
 
   svg.transition().duration(420).call(
     zoom.transform,
@@ -1053,8 +1057,8 @@ function fitToViewCentered(){
 
 /* ======= Previos en Operaciones ======= */
 const PREV_KEY = "Previo EBP 2024-2027";
-const DOT_R = 14;
-const DOT_PAD_X = 22;
+const DOT_R = 7;
+const DOT_PAD_X = 14;
 const DOT_CY = 0;
 
 function normPrevValue(v){
@@ -1138,7 +1142,7 @@ function render(treeData){
 
   ROOT_HIER = d3.hierarchy(treeData);
 
-  const rowGap = 210;
+  const rowGap = Math.max(128, Math.min(178, 620 / Math.max(1, ROOT_HIER.leaves().length)));
   const treeLayout = d3.tree().nodeSize([rowGap, 1]);
   treeLayout(ROOT_HIER);
 
@@ -1206,12 +1210,12 @@ function render(treeData){
 
   const title = nodes.append("text")
     .attr("class","title")
-    .attr("x", 20)
+    .attr("x", 18)
     .attr("y", 0)
     .text(d=>d.data.name);
 
   title.each(function(d){
-    const w = nodeWidth(d) - 36;
+    const w = nodeWidth(d) - 34;
     wrapText(d3.select(this), w);
   });
 
@@ -1220,7 +1224,7 @@ function render(treeData){
     const textEl = node.select("text.title").node();
     const bbox = textEl.getBBox();
 
-    const padY = 38;
+    const padY = 24;
     const h = bbox.height + padY * 2;
     d.data._h = h;
 
