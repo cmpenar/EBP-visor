@@ -249,8 +249,8 @@
       font-weight:500;
     }
     .node.root text{
-      font-size:15px !important;
-      font-weight:900;
+      font-size:19px !important;
+      font-weight:600;
     }
 
     .node text{
@@ -676,10 +676,10 @@ function nodeSize(d){
   const lvl = d.data._lvl;
 
   if(col === 0) return {w:250, h:86};
-  if(lvl === "Área Prioritaria") return {w:320, h:72};
-  if(lvl === "Objetivo Estratégico") return {w:330, h:66};
-  if(lvl === "Operaciones vinculadas") return {w:355, h:72};
-  return {w:330, h:64};
+  if(lvl === "Área Prioritaria") return {w:360, h:88};
+  if(lvl === "Objetivo Estratégico") return {w:380, h:84};
+  if(lvl === "Operaciones vinculadas") return {w:410, h:92};
+  return {w:360, h:80};
 }
 
 function wrapText(text, width){
@@ -846,7 +846,7 @@ function render(){
   const maxCol = d3.max(rootHier.descendants(), d => d.data._col ?? d.depth) || 0;
 
   const widths = Array.from({length:maxCol+1}, (_,i)=> {
-    if(i===0) return 250;
+    if(i===0) return 310;
     const lvl = CURRENT_LEVELS[i-1];
     if(lvl === "Área Prioritaria") return 320;
     if(lvl === "Objetivo Estratégico") return 330;
@@ -861,7 +861,7 @@ function render(){
     colX[i] = colX[i-1] + widths[i-1] + gap;
   }
 
-  const treeLayout = d3.tree().nodeSize([112, 1]);
+  const treeLayout = d3.tree().nodeSize([145, 1]);
   treeLayout(rootHier);
 
   rootHier.descendants().forEach(d=>{
