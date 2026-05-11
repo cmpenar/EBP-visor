@@ -117,7 +117,7 @@
     select:focus{border-color:#38bdf8;box-shadow:0 0 0 3px rgba(56,189,248,.16)}
 
     .filtersBox{
-      margin-top:12px;
+      margin-top:14px;
       padding:14px;
       border-radius:14px;
       background:#f1f5f9;
@@ -236,8 +236,6 @@
     }
 
     .node rect{
-      rx:16;
-      ry:16;
       fill:white;
       stroke:#c8d2dc;
       stroke-width:1.2;
@@ -252,9 +250,8 @@
       font-weight:500;
     }
     .node.root text{
-      font-size:28px !important;
-      font-weight:400;
-      letter-spacing:0.2px;
+      font-size:20px !important;
+      font-weight:500;
     }
 
     .node text{
@@ -403,6 +400,18 @@
       .bottomBand{flex-direction:column}
       .legend{width:100%}
     }
+  
+    /* Ajuste final de legibilidad del árbol */
+    .node text{
+      font-size:18px !important;
+      font-weight:400 !important;
+      letter-spacing:0;
+    }
+    .node.root text{
+      font-size:20px !important;
+      font-weight:500 !important;
+    }
+
   </style>
 </head>
 
@@ -680,10 +689,10 @@ function nodeSize(d){
   const lvl = d.data._lvl;
 
   if(col === 0) return {w:250, h:86};
-  if(lvl === "Área Prioritaria") return {w:520, h:150};
-  if(lvl === "Objetivo Estratégico") return {w:560, h:145};
-  if(lvl === "Operaciones vinculadas") return {w:650, h:165};
-  return {w:500, h:140};
+  if(lvl === "Área Prioritaria") return {w:350, h:88};
+  if(lvl === "Objetivo Estratégico") return {w:370, h:86};
+  if(lvl === "Operaciones vinculadas") return {w:410, h:92};
+  return {w:370, h:84};
 }
 
 function wrapText(text, width){
@@ -850,7 +859,7 @@ function render(){
   const maxCol = d3.max(rootHier.descendants(), d => d.data._col ?? d.depth) || 0;
 
   const widths = Array.from({length:maxCol+1}, (_,i)=> {
-    if(i===0) return 420;
+    if(i===0) return 300;
     const lvl = CURRENT_LEVELS[i-1];
     if(lvl === "Área Prioritaria") return 320;
     if(lvl === "Objetivo Estratégico") return 330;
@@ -859,13 +868,13 @@ function render(){
     return 330;
   });
 
-  const gap = 290;
+  const gap = 165;
   const colX = [0];
   for(let i=1;i<=maxCol;i++){
     colX[i] = colX[i-1] + widths[i-1] + gap;
   }
 
-  const treeLayout = d3.tree().nodeSize([240, 1]);
+  const treeLayout = d3.tree().nodeSize([130, 1]);
   treeLayout(rootHier);
 
   rootHier.descendants().forEach(d=>{
@@ -908,7 +917,7 @@ function render(){
     .text(d=>d.data.name);
 
   text.each(function(d){
-    wrapText(d3.select(this), nodeSize(d).w - 42 - (isOperacionNode(d) ? 26 : 0));
+    wrapText(d3.select(this), nodeSize(d).w - 48 - (isOperacionNode(d) ? 30 : 0));
   });
 
   nodes.each(function(d){
@@ -952,8 +961,8 @@ function fitToView(){
   const padBottom = 54;
 
   const scale = Math.min(
-    1.45,
-    Math.max(.45, Math.min(
+    1.65,
+    Math.max(.52, Math.min(
       (w - padX*2) / bounds.width,
       (h - padTop - padBottom) / bounds.height
     ))
