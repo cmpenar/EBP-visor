@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="es">
 <head>
@@ -235,6 +236,8 @@
     }
 
     .node rect{
+      rx:16;
+      ry:16;
       fill:white;
       stroke:#c8d2dc;
       stroke-width:1.2;
@@ -249,8 +252,9 @@
       font-weight:500;
     }
     .node.root text{
-      font-size:25px !important;
+      font-size:28px !important;
       font-weight:400;
+      letter-spacing:0.2px;
     }
 
     .node text{
@@ -676,10 +680,10 @@ function nodeSize(d){
   const lvl = d.data._lvl;
 
   if(col === 0) return {w:250, h:86};
-  if(lvl === "Área Prioritaria") return {w:440, h:120};
-  if(lvl === "Objetivo Estratégico") return {w:470, h:118};
-  if(lvl === "Operaciones vinculadas") return {w:520, h:128};
-  return {w:420, h:110};
+  if(lvl === "Área Prioritaria") return {w:520, h:150};
+  if(lvl === "Objetivo Estratégico") return {w:560, h:145};
+  if(lvl === "Operaciones vinculadas") return {w:650, h:165};
+  return {w:500, h:140};
 }
 
 function wrapText(text, width){
@@ -846,7 +850,7 @@ function render(){
   const maxCol = d3.max(rootHier.descendants(), d => d.data._col ?? d.depth) || 0;
 
   const widths = Array.from({length:maxCol+1}, (_,i)=> {
-    if(i===0) return 310;
+    if(i===0) return 420;
     const lvl = CURRENT_LEVELS[i-1];
     if(lvl === "Área Prioritaria") return 320;
     if(lvl === "Objetivo Estratégico") return 330;
@@ -855,13 +859,13 @@ function render(){
     return 330;
   });
 
-  const gap = 220;
+  const gap = 290;
   const colX = [0];
   for(let i=1;i<=maxCol;i++){
     colX[i] = colX[i-1] + widths[i-1] + gap;
   }
 
-  const treeLayout = d3.tree().nodeSize([190, 1]);
+  const treeLayout = d3.tree().nodeSize([240, 1]);
   treeLayout(rootHier);
 
   rootHier.descendants().forEach(d=>{
